@@ -339,10 +339,10 @@ export function TransaksiPage() {
                         )}
                       </span>
                       <span className="tx-item-actions">
-                        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={() => setEditing(transaction)} aria-label={t('tx.edit')} title={t('tx.edit')}>
+                        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => setEditing(transaction)} aria-label={t('tx.edit')} title={t('tx.edit')}>
                           <Icon name="edit" size={15} />
                         </button>
-                        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain text-danger" onClick={() => void handleDelete(transaction)} aria-label={t('tx.delete')} title={t('tx.delete')}>
+                        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft text-danger" onClick={() => void handleDelete(transaction)} aria-label={t('tx.delete')} title={t('tx.delete')}>
                           <Icon name="trash" size={15} />
                         </button>
                       </span>

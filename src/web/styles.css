@@ -451,6 +451,16 @@ select.input,
   font-size: 18px;
 }
 
+/* Edit and delete beside a row: a round tinted background, so they read as buttons. */
+.icon-btn-soft {
+  background: var(--fill);
+  border-radius: 999px;
+}
+
+.icon-btn-soft:hover {
+  background: var(--fill-strong);
+}
+
 /* The × in a dialog's header: a plain glyph with no box or ring. It brightens on hover, and the focus ring
    shows only for keyboard focus. */
 .dialog-close {

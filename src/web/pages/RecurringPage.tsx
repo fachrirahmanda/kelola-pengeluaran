@@ -439,10 +439,10 @@ function InstallmentCard({
         <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={() => setCatching((open) => !open)} aria-expanded={catching} aria-label={t('rec.fillThrough')} title={t('rec.fillThrough')}>
           <Icon name="calendar" size={15} />
         </button>
-        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={() => setEditing(true)} aria-label={t('rec.edit')} title={t('rec.edit')}>
+        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => setEditing(true)} aria-label={t('rec.edit')} title={t('rec.edit')}>
           <Icon name="edit" size={15} />
         </button>
-        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain text-danger" onClick={() => void remove()} aria-label={t('rec.delete')} title={t('rec.delete')}>
+        <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft text-danger" onClick={() => void remove()} aria-label={t('rec.delete')} title={t('rec.delete')}>
           <Icon name="trash" size={15} />
         </button>
       </div>
