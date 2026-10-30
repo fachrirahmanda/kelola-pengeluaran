@@ -108,6 +108,8 @@
 
 .app-main > .container {
   max-width: none;
+  /* Every page starts at the top and keeps a steady height while its data loads, so the title never shifts. */
+  min-height: 70dvh;
 }
 
 @media (max-width: 720px) {
