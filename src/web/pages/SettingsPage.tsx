@@ -40,13 +40,10 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {/* Keeps the page as tall as the longest tab, so switching tabs doesn't shrink the page and make it jump. */}
-      <div className="settings-body">
-        {tab === 'categories' && <CategoriesSection />}
-        {tab === 'workspace' && <WorkspaceSection />}
-        {tab === 'storage' && isAdmin && <DriveSection />}
-        {tab === 'ai' && isAdmin && <AiSection />}
-      </div>
+      {tab === 'categories' && <CategoriesSection />}
+      {tab === 'workspace' && <WorkspaceSection />}
+      {tab === 'storage' && isAdmin && <DriveSection />}
+      {tab === 'ai' && isAdmin && <AiSection />}
     </>
   );
 }
