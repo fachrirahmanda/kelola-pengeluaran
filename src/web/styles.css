@@ -1945,11 +1945,11 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   gap: 6px;
 }
 
-/* Donut chart (components/Donut.tsx): the ring with its total in the middle. */
+/* Donut chart (components/Donut.tsx): rounded segments, a ring of ticks, and the total in the middle. */
 .donut-wrap {
   position: relative;
-  width: 160px;
-  height: 160px;
+  width: 180px;
+  height: 180px;
   margin: 0 auto 16px;
 }
 
@@ -1958,13 +1958,32 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   height: 100%;
 }
 
+.donut-ticks line {
+  stroke: var(--muted);
+  stroke-opacity: 0.4;
+  stroke-width: 0.8;
+}
+
 .donut-center {
   position: absolute;
   inset: 0;
   display: grid;
   place-content: center;
+  justify-items: center;
+  gap: 2px;
+  padding: 0 22%;
   text-align: center;
   line-height: 1.2;
+}
+
+.donut-center strong {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Budgets page: one row per scope, with its limit, progress and the input to change it. */
