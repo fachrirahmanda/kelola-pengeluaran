@@ -451,6 +451,27 @@ select.input,
   font-size: 18px;
 }
 
+/* The × in a dialog's header: a plain glyph with no box or ring. It brightens on hover, and the focus ring
+   shows only for keyboard focus. */
+.dialog-close {
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+
+.dialog-close:hover {
+  color: inherit;
+  background: transparent;
+}
+
+.dialog-close:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
 /* Settings */
 
 .settings-section {

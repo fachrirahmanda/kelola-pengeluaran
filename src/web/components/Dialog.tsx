@@ -42,6 +42,9 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer, cl
         s.showPopover();
       }
       d.showModal();
+      // showModal focuses the first control, which is the × button: the dialog takes focus instead, so the
+      // × does not show a focus ring when the sheet opens. Keyboard users still reach it with Tab.
+      d.focus();
     }
     if (!open && d.open) {
       d.close();
@@ -71,6 +74,7 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer, cl
       <div ref={scrim} popover="manual" className="dialog-scrim" data-for={className} aria-hidden="true" />
       <dialog
         ref={ref}
+        tabIndex={-1}
         className={`dialog dialog-${size} ${className ?? ''}`}
         onClose={(e) => {
           if (e.target !== e.currentTarget) return;
@@ -94,8 +98,8 @@ export function Dialog({ open, onClose, title, size = 'md', children, footer, cl
             <div className="dialog-header">
               <h2 className="dialog-title">{title}</h2>
               {actions && <div className="dialog-actions">{actions}</div>}
-              <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={requestClose} aria-label="Close">
-                <Icon name="x" size={14} />
+              <button type="button" className="icon-btn icon-btn-sm icon-btn-plain dialog-close" onClick={requestClose} aria-label="Close">
+                <Icon name="x" size={18} />
               </button>
             </div>
             <div className={`dialog-body ${bodyClassName ?? ''}`}>{children}</div>
