@@ -1,3 +1,4 @@
 SESSION_SECRET=ganti-dengan-string-acak-panjang
 # Uncomment for local development only: signs in without Google on localhost. Never set in production.
 # DEV_LOGIN=true
+SETTINGS_KEY=ganti-dengan-string-acak-lain

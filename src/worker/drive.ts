@@ -5,7 +5,7 @@ import { decryptSecret, encryptSecret } from './crypto';
 // Google Drive as the file store for receipt attachments. One Google account for the whole app: the
 // admin (ADMIN_EMAIL) connects it once, and every user's attachments go into its folder. The scope
 // drive.file means the app only sees files it created. The refresh token is kept in drive_connections,
-// encrypted with a key derived from SESSION_SECRET.
+// encrypted with a key derived from SETTINGS_KEY (see crypto.ts).
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';

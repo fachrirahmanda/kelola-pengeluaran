@@ -6,6 +6,8 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   /** Signs the session cookie. Set with `wrangler secret put SESSION_SECRET` (use .dev.vars locally). */
   SESSION_SECRET: string;
+  /** Encrypts the secrets kept in the database (the Drive token, the NVIDIA key). Set with `wrangler secret put SETTINGS_KEY`. */
+  SETTINGS_KEY?: string;
   /** The admin: the account that connects the app's Google Drive. Set in wrangler.jsonc vars. */
   ADMIN_EMAIL?: string;
   /** NVIDIA API key (nvapi-…) for Ask AI. Set with `wrangler secret put NVIDIA_API_KEY` (use .dev.vars locally). */
