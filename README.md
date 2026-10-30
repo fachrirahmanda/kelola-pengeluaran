@@ -30,6 +30,7 @@ npx wrangler login
 npm run db:migrate:remote        # hanya saat ada migrasi baru
 npm run deploy                   # build lalu wrangler deploy
 npx wrangler secret put SESSION_SECRET   # sekali, atau saat ingin mengganti (semua sesi keluar)
+npx wrangler secret put SETTINGS_KEY     # sekali; mengenkripsi Drive token dan key NVIDIA, jangan diganti tanpa perlu
 ```
 
 ## Struktur
