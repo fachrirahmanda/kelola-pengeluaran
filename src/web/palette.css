@@ -1,0 +1,91 @@
+/* Colour style. "Monochrome" is the default look in styles.css and Basis. "Soft pastel" is set on <html data-palette="pastel">
+   (see prefs.tsx). Everything here is scoped to that attribute, so the monochrome look is untouched.
+   The page background is a warm off-white, cards are white with large radii and a soft shadow, and the stat cards
+   take the pastel tints (mint, lavender, peach, sky) in turn. Each colour has a dark-mode twin via light-dark(). */
+
+html[data-palette='pastel'] {
+  --pastel-mint: light-dark(#d7f0e4, #1f3a2f);
+  --pastel-lavender: light-dark(#e6e0f8, #2e2a46);
+  --pastel-peach: light-dark(#fce3d1, #3d2f28);
+  --pastel-sky: light-dark(#d9ebf8, #223344);
+
+  --bg: light-dark(#f4f3ef, #0e0f14);
+  --surface: light-dark(#ffffff, #161820);
+  --surface-2: light-dark(#f1f0ec, #1d2029);
+  --fill: light-dark(rgb(30 30 50 / 0.05), rgb(255 255 255 / 0.07));
+  --fill-strong: light-dark(rgb(30 30 50 / 0.09), rgb(255 255 255 / 0.12));
+  --separator: light-dark(rgb(30 30 50 / 0.08), rgb(255 255 255 / 0.09));
+  --card-edge: light-dark(rgb(30 30 50 / 0.04), rgb(255 255 255 / 0.06));
+  --text: light-dark(#1b1d26, #f3f3f7);
+  --muted: light-dark(#5a5c68, #a4a6b3);
+  --accent: light-dark(#1f2330, #ffffff);
+  --accent-soft: light-dark(rgb(30 35 48 / 0.07), rgb(255 255 255 / 0.1));
+  --on-accent: light-dark(#ffffff, #1f2330);
+
+  --radius: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+}
+
+html[data-palette='pastel'] body {
+  background: var(--bg);
+}
+
+html[data-palette='pastel'] .card {
+  border-color: transparent;
+  box-shadow: 0 1px 2px rgb(20 20 40 / 0.04), 0 8px 24px rgb(20 20 40 / 0.05);
+}
+
+/* Stat cards take the pastel tints in turn: the first is mint, then lavender, peach and sky. */
+html[data-palette='pastel'] .stat {
+  background: var(--pastel-mint);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+html[data-palette='pastel'] .stat:nth-child(4n + 2) {
+  background: var(--pastel-lavender);
+}
+
+html[data-palette='pastel'] .stat:nth-child(4n + 3) {
+  background: var(--pastel-peach);
+}
+
+html[data-palette='pastel'] .stat:nth-child(4n + 4) {
+  background: var(--pastel-sky);
+}
+
+html[data-palette='pastel'] .stat-primary {
+  background: var(--pastel-mint);
+}
+
+html[data-palette='pastel'] .stat-label,
+html[data-palette='pastel'] .stat-hint {
+  color: var(--muted);
+}
+
+/* The report hero uses the same soft mint as the first stat card. */
+html[data-palette='pastel'] .rep-hero {
+  background: var(--pastel-mint);
+  border-color: transparent;
+}
+
+/* Charts in the pastel style: each month's bar takes the next pastel in turn (--bar-index), with a dark-mode twin. */
+html[data-palette='pastel'] {
+  --pastel-bar-0: light-dark(#a8e3c8, #2f6b55);
+  --pastel-bar-1: light-dark(#c9bcf2, #4a4079);
+  --pastel-bar-2: light-dark(#f8c3a3, #7a4f3c);
+  --pastel-bar-3: light-dark(#a9d4f2, #2f5878);
+  --pastel-bar-4: light-dark(#f5e0a0, #6b5b2a);
+  --pastel-bar-5: light-dark(#f5b9c8, #7a3f52);
+}
+
+html[data-palette='pastel'] .rep-bar-fill {
+  background: var(--pastel-bar-0);
+}
+
+html[data-palette='pastel'] .rep-bar-fill[style*='--bar-index: 1'] { background: var(--pastel-bar-1); }
+html[data-palette='pastel'] .rep-bar-fill[style*='--bar-index: 2'] { background: var(--pastel-bar-2); }
+html[data-palette='pastel'] .rep-bar-fill[style*='--bar-index: 3'] { background: var(--pastel-bar-3); }
+html[data-palette='pastel'] .rep-bar-fill[style*='--bar-index: 4'] { background: var(--pastel-bar-4); }
+html[data-palette='pastel'] .rep-bar-fill[style*='--bar-index: 5'] { background: var(--pastel-bar-5); }

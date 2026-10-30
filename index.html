@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neraca</title>
+    <meta name="description" content="Neraca: catat pengeluaran harian, kartu kredit, cicilan, dan laporan bulanan." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Add to Home Screen: iOS takes the PNG touch icon and these meta tags; others read the manifest. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Neraca" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <!-- Basis design system (see .env). Load before the app so its styles can override. -->
+    <script>
+      // The colour style is set before the first paint, so the page never flashes in the wrong style.
+      try {
+        document.documentElement.dataset.palette = localStorage.getItem('neraca.palette') === 'mono' ? 'mono' : 'pastel';
+      } catch {
+        document.documentElement.dataset.palette = 'pastel';
+      }
+    </script>
+    <link rel="stylesheet" href="%VITE_DS_URL%/ds.css" />
+    <script type="module" src="%VITE_DS_URL%/ds.js"></script>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the wrong theme.
+      try {
+        const t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
+    <style>
+      /* Preloader: the Neraca bar chart, its bars growing in turn while the app starts. Inline so it paints first;
+         the page colour follows the theme so a dark page never flashes white. React replaces it. */
+      html { background: #fafafa; }
+      @media (prefers-color-scheme: dark) { html:not([data-theme='light']) { background: #000; } }
+      html[data-theme='dark'] { background: #000; }
+      .boot { position: fixed; inset: 0; display: grid; place-items: center; animation: boot-in 0.3s ease 0.15s both; }
+      .boot svg { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.18); }
+      .boot .bar { transform-box: fill-box; transform-origin: bottom; animation: boot-bar 1.4s ease-in-out infinite; }
+      .boot .bar-2 { animation-delay: 0.18s; }
+      .boot .bar-3 { animation-delay: 0.36s; }
+      @keyframes boot-bar { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+      @keyframes boot-in { from { opacity: 0; transform: scale(0.94); } }
+      
+      @media (prefers-reduced-motion: reduce) {
+        .boot .bar { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot" role="status" aria-label="Loading Neraca">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <defs><linearGradient id="boot-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2a2a" /><stop offset="1" stop-color="#050505" /></linearGradient></defs>
+          <rect width="32" height="32" rx="8" fill="url(#boot-g)" />
+          <rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#fff" stroke-opacity=".14" />
+          <g fill="#fff"><rect class="bar bar-1" x="7" y="17" width="4.5" height="8" rx="1.2"/><rect class="bar bar-2" x="13.75" y="12" width="4.5" height="13" rx="1.2"/><rect class="bar bar-3" x="20.5" y="7" width="4.5" height="18" rx="1.2"/></g><path d="M5.5 25.5h21" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+    <script type="module" src="/src/web/main.tsx"></script>
+  </body>
+</html>

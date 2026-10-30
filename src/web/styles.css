@@ -1,0 +1,3721 @@
+/* App-specific styles only. Tokens, components and reset come from the Basis design system. */
+
+/* ---------- app shell: sidebar on desktop, bottom bar on phones (like Silpasala) ---------- */
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100vh;
+  height: 100dvh;
+  padding: 20px 14px;
+  box-shadow: inset -1px 0 0 var(--separator);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.sidebar-brand img {
+  border-radius: 8px;
+}
+
+.sidebar-label {
+  margin: 0 8px 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 2px;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.sidebar-link svg {
+  flex: none;
+}
+
+.sidebar-link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.sidebar-link[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.app-logout {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-logout:hover {
+  color: var(--text);
+}
+
+/* The content column, from Silpasala (app.css: app-main). The page inside is a container with the page padding. */
+.app-main {
+  flex: 1 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main > .container {
+  max-width: none;
+}
+
+@media (max-width: 720px) {
+  .ds-app,
+  .ds-app.is-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ds-sidebar {
+    display: none;
+  }
+
+  /* Room for the bottom bar. */
+  .app-main {
+    padding-bottom: 110px;
+  }
+
+}
+
+/* Chips: method, card, and other single choices. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    box-shadow 0.15s;
+}
+
+.pill:hover {
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+
+.pill[aria-checked="true"] {
+  background: var(--text);
+  box-shadow: none;
+  color: var(--bg);
+}
+
+.pill:focus-visible,
+.category-option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* Transaction form */
+
+.tx-form {
+  display: grid;
+  gap: 22px;
+}
+
+.tx-amount {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.tx-amount-label,
+.tx-field-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tx-amount-field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.tx-amount-prefix {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.tx-amount-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: clamp(36px, 8vw, 48px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.tx-amount-field input::placeholder {
+  color: var(--fill-strong);
+}
+
+.tx-amount-hint,
+.tx-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.tx-field {
+  display: grid;
+  gap: 10px;
+}
+
+.tx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.category-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+
+.category-option[aria-checked="true"] {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+.category-option-name {
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card {
+  border-radius: var(--radius-xl);
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--separator);
+}
+
+/* No grey boxes: fields, secondary buttons and dialogs are outlined or plain. */
+.input,
+select.input,
+.tx-amount-field input {
+  background: transparent;
+}
+
+.btn:not(.btn-primary):not(.btn-ghost) {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.dialog {
+  background: var(--bg);
+}
+
+
+/* Dashboard */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.stat {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The main number is the only one with a stronger outline. */
+.stat-primary {
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-3);
+}
+
+.dash-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.dash-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash-panel-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.dash-link {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.dash-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: 40px 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--muted);
+  text-align: center;
+}
+
+.bar-list,
+.recent-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.bar-track {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--separator);
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recent-main {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.recent-title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.recent-unpaid {
+  color: var(--warning);
+}
+
+.pill-icon {
+  padding: 8px 10px;
+  font-size: 18px;
+}
+
+/* Settings */
+
+.settings-section {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.settings-section-head h3 {
+  margin: 0 0 4px;
+}
+
+.settings-section-head .hint {
+  margin: 0;
+}
+
+.settings-row-edit {
+  border-bottom: 1px solid var(--separator);
+}
+
+.source-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.source-name {
+  font-weight: 500;
+}
+
+.source-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+/* History: the table on wide screens, a list of cards on phones (see TransaksiPage). */
+.tx-list {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .tx-table-desktop {
+    display: none;
+  }
+
+  .tx-list {
+    display: block;
+  }
+}
+
+.tx-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.tx-item:last-child {
+  border-bottom: 0;
+}
+
+.tx-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tx-item-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tx-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.tx-item-amount {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tx-item-meta {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.tx-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.tx-item-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.tx-item-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-4);
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+.stack-lg {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--cat-color) 18%, transparent);
+  font-size: 16px;
+}
+
+.cat-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--swatch-color);
+  cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--separator);
+}
+
+.list-row:last-child {
+  border-bottom: 0;
+}
+
+.session-loading {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+/* ---------- login ---------- */
+
+/* Brand panel on the left (always dark), sign-in on the right. Phones get the panel as a header. */
+.login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--bg);
+}
+
+.login-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 40px clamp(32px, 5vw, 64px);
+  overflow: hidden;
+  color: #fff;
+  background: #0a0a0a;
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.08);
+}
+
+.login-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(560px 380px at 88% 4%, rgb(255 255 255 / 0.14), transparent 70%),
+    radial-gradient(520px 420px at 0% 100%, rgb(255 255 255 / 0.07), transparent 70%),
+    linear-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgb(255 255 255 / 0.045) 1px, transparent 1px) 0 0 / 32px 32px;
+  mask-image: linear-gradient(to bottom, #000 45%, transparent);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login-brand img,
+.login-card-logo {
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.18), 0 4px 14px rgb(0 0 0 / 0.4);
+}
+
+.login-pitch {
+  max-width: 30rem;
+  margin-top: auto;
+}
+
+.login-pitch h2 {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.login-pitch p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: rgb(255 255 255 / 0.7);
+}
+
+/* Decorative preview of a spending list: a monthly total, then transaction rows in category colors. Placeholder bars only. */
+.login-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 30rem;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.login-preview-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  padding: 4px 4px 14px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.login-preview-total > span:first-child {
+  font-size: var(--text-xs);
+  color: rgb(255 255 255 / 0.6);
+}
+
+.login-preview-total .bar {
+  width: 110px;
+  height: 12px;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.login-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  animation: login-float 6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -1.5s);
+}
+
+.login-preview-badge {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--cat);
+}
+
+.login-preview-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.login-preview-lines .bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.6);
+}
+
+.login-preview-lines .bar.short {
+  background: rgb(255 255 255 / 0.22);
+}
+
+.login-preview-amount {
+  flex: none;
+  height: 8px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.4);
+}
+
+
+.login-highlights {
+  display: grid;
+  gap: 14px;
+  max-width: 30rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.login-highlights li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.login-highlights strong {
+  display: block;
+  font-size: 14px;
+  color: #fff;
+}
+
+.login-highlights li > span:last-child > span {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: rgb(255 255 255 / 0.65);
+}
+
+.login-highlight-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+.login-main {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 72px 24px 32px;
+}
+
+.login-theme {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+@keyframes login-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes login-hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-preview-card,
+  .login-card,
+  .login-hero {
+    animation: none;
+  }
+}
+
+/* Small screens: the brand panel becomes a header above the sign-in card. */
+@media (max-width: 900px) {
+  .login {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    position: relative;
+  }
+
+  .login-hero {
+    gap: 22px;
+    padding: calc(env(safe-area-inset-top) + 22px) 24px 30px;
+    border-radius: 0 0 16px 16px;
+    box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.08);
+    animation: login-hero-in 0.6s var(--ease) both;
+  }
+
+  .login-pitch {
+    margin-top: 6px;
+  }
+
+  .login-pitch h2 {
+    font-size: 30px;
+  }
+
+  .login-pitch p {
+    font-size: 15px;
+  }
+
+  .login-preview {
+    max-width: none;
+  }
+
+  .login-highlights {
+    display: none;
+  }
+
+  .login-main {
+    position: static;
+    place-items: start center;
+    padding: 28px 16px calc(28px + env(safe-area-inset-bottom));
+  }
+
+  .login-card-logo {
+    display: none;
+  }
+
+  .ds-login-card-head h1 {
+    font-size: 26px;
+  }
+
+  /* The theme switch sits on the dark header. */
+  .login-theme {
+    top: calc(env(safe-area-inset-top) + 18px);
+    right: 18px;
+    z-index: 2;
+  }
+
+  .login-theme .theme-switch {
+    background: rgb(255 255 255 / 0.1);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+  }
+
+  .login-theme .theme-switch button {
+    color: rgb(255 255 255 / 0.65);
+  }
+
+  .login-theme .theme-switch button[aria-pressed="true"] {
+    background: rgb(255 255 255 / 0.2);
+    color: #fff;
+  }
+}
+
+/* Skeleton placeholders: rows and forms laid out like the real content. */
+.skeleton-rows {
+  display: grid;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.skeleton-row:last-child {
+  border-bottom: 0;
+}
+
+.skeleton-row-lines {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skeleton-dashboard,
+.skeleton-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.skeleton-form .tx-amount {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-form .category-grid .skeleton {
+  border-radius: var(--radius-lg);
+}
+
+
+.flag {
+  display: block;
+  flex: none;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.35);
+}
+
+.settings-pref-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* Dev login (localhost only): a plain form under the Google button. */
+.dev-login {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.dev-login .hint {
+  margin: 0;
+}
+
+/* Bills */
+.section-heading {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.bill-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-3);
+}
+
+.bill-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: 20px;
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.bill-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bill-card-title {
+  margin: 2px 0 0;
+  font-size: var(--text-lg);
+}
+
+.bill-period {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.bill-total {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.bill-meta dt {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.bill-meta dd {
+  margin: 2px 0 0;
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.bill-pay-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.bill-pay-button {
+  width: 100%;
+}
+
+/* Dashboard: due-next-month total, and the links under the panels. */
+.dash-due-total {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reports: column chart and small hints. */
+.stat-hint {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.btn.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.report-chart {
+  margin-bottom: var(--space-3);
+}
+
+.column-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 240px;
+  padding-top: 8px;
+}
+
+.column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.column-bar {
+  display: block;
+  width: 100%;
+  max-width: 52px;
+  min-height: 2px;
+  border-radius: 6px 6px 0 0;
+  background: var(--text);
+}
+
+.column-value {
+  margin-bottom: 6px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.column-label {
+  margin-top: 8px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* Responsive fixes: grids and panels may shrink below their content, so nothing spills past the
+   screen edge on phones. Tracks use min(…, 100%) so a 220px minimum never exceeds a narrow column. */
+.app-main,
+.app-main > *,
+.card,
+.dash-panel,
+.settings-section,
+.tx-form,
+.tx-field,
+.tx-grid,
+.category-grid,
+.form-grid,
+.stat-grid,
+.dash-grid,
+.bill-grid,
+.filter-grid {
+  min-width: 0;
+}
+
+.tx-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tx-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+
+.category-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+}
+
+.filter-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+}
+
+.stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+}
+
+.dash-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+}
+
+.bill-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+}
+
+.column-chart {
+  gap: 6px;
+  min-width: 0;
+}
+
+.column {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.column-value {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+
+/* Invitation banner above the page content. */
+.invite-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: var(--space-4);
+}
+
+/* Sidebar groups (desktop). */
+.sidebar-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.sidebar-group .sidebar-label {
+  margin-bottom: 4px;
+}
+
+/* Dropdowns (components/Select.tsx), the Silpasala pattern. The field and panel are transparent
+   with a hairline instead of a grey fill, as Neraca uses no grey boxes. */
+.rs { min-width: 0; font-size: var(--text-md); }
+.rs__control {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.rs-md .rs__control { min-height: 38px; font-size: var(--text-base); }
+.rs__control:hover:not(:disabled),
+.rs__control--menu-is-open { box-shadow: inset 0 0 0 1px var(--muted); }
+.rs__control:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.rs__control--is-disabled { opacity: 0.5; cursor: not-allowed; }
+.rs__value-container { display: grid; flex: 1; gap: 4px; padding: 4px 0; min-width: 0; overflow: hidden; }
+.rs__single-value, .rs__placeholder { grid-area: 1 / 1 / 2 / 3; min-width: 0; }
+.rs__single-value { color: var(--text); }
+.rs__placeholder { color: var(--muted); }
+.rs__indicators { display: flex; flex-shrink: 0; gap: 2px; color: var(--muted); }
+.rs__dropdown-indicator { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; transition: transform 0.2s var(--ease), color 0.15s; }
+.rs__control--menu-is-open .rs__dropdown-indicator { transform: rotate(180deg); color: var(--text); }
+
+.select-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--text-md);
+  box-shadow: 0 0 0 1px var(--separator), var(--shadow-lg);
+}
+.select-popover:popover-open { animation: ds-pop 0.14s var(--ease); }
+.rs-pop .rs__control {
+  gap: 8px;
+  width: auto;
+  min-height: 0;
+  margin: 6px 6px 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  cursor: text;
+}
+.rs-pop .rs__control--is-focused { box-shadow: inset 0 0 0 1px var(--muted); }
+.rs-search-icon { flex-shrink: 0; color: var(--muted); }
+.rs-pop .rs__value-container { padding: 0; }
+.rs__input-container { grid-area: 1 / 1 / 2 / 3; color: var(--text); }
+.rs__input-container input:focus-visible { box-shadow: none; }
+/* Short lists have no search box; it stays focusable (off-screen) so the arrow keys work. */
+.select-popover.is-plain .rs__control { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; overflow: hidden; opacity: 0; pointer-events: none; }
+.rs-pop .rs__menu { position: static; margin: 0; width: auto; box-shadow: none; background: none; }
+.rs__menu-list { padding: 6px; max-height: 300px; overflow-y: auto; }
+.rs__option {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+}
+.rs__option--is-focused { box-shadow: inset 0 0 0 1px var(--separator); }
+.rs__option--is-selected { font-weight: 600; }
+.rs__option--is-selected.rs__option--is-focused { box-shadow: inset 0 0 0 1px var(--muted); }
+[data-input="pointer"] .rs__option--is-focused:not(:hover) { box-shadow: none; }
+.rs__option--is-disabled { opacity: 0.4; cursor: not-allowed; }
+.rs__menu-notice { padding: 10px; color: var(--muted); text-align: center; }
+.rs-label { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.rs-icon { display: inline-flex; flex-shrink: 0; }
+.rs-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-check { flex-shrink: 0; margin-left: auto; color: var(--text); }
+.rs__single-value .rs-check { display: none; }
+.settings-pref-row .rs { min-width: 200px; }
+
+/* Skeleton shimmer, the Silpasala tokens: the bone colour follows the theme. */
+:root {
+  --bone: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.07));
+  --bone-shine: light-dark(rgb(0 0 0 / 0.14), rgb(255 255 255 / 0.17));
+}
+
+@keyframes bone-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+.bone,
+.skeleton {
+  background: linear-gradient(100deg, var(--bone) 0%, var(--bone) 38%, var(--bone-shine) 50%, var(--bone) 62%, var(--bone) 100%) 0 0 / 250% 100%;
+  animation: bone-shimmer 1.3s ease-in-out infinite;
+}
+
+.bone {
+  display: block;
+  flex-shrink: 0;
+  min-height: 0;
+  margin: 0;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bone,
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Fields and tables, matched to the dropdowns: transparent with a hairline, one height. */
+.input {
+  height: 36px;
+  padding: 0 12px;
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.input:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+
+.input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--muted), 0 0 0 3px var(--focus);
+}
+
+/* Native date and month pickers follow the theme, so their icon stays visible in dark mode. */
+input[type="date"].input,
+input[type="month"].input {
+  color-scheme: light dark;
+}
+
+.table th {
+  background: transparent;
+}
+
+.filter-grid .field {
+  align-content: end;
+}
+
+/* Summary cards, the Silpasala KPI card: tighter padding, medium corners, the same type sizes. */
+.stat {
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* The due-next-month total sits next to its panel title, so it stays the title's size. */
+.dash-due-total {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+/* Tables on wide screens: the header stays on top while the page scrolls, as in Silpasala.
+   Phones turn rows into cards (see tx-table), so there is no horizontal scroll to keep. */
+@media (min-width: 721px) {
+  .table-wrap {
+    overflow: visible;
+  }
+
+  .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg);
+  }
+}
+
+/* Cards and panels rise in once, like Silpasala's columns and KPI cards. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.stat,
+.dash-panel,
+.bill-card,
+.card {
+  animation: rise-in 0.36s var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat,
+  .dash-panel,
+  .bill-card,
+  .card {
+    animation: none;
+  }
+}
+
+/* Visual check pass: spacing under card titles, uniform summary cards, and phone-sized charts and filters. */
+.card-body > .card-title {
+  margin-bottom: var(--space-4);
+}
+
+.stat-primary {
+  box-shadow: inset 0 0 0 1px var(--separator);
+}
+
+.tx-amount {
+  box-shadow: none;
+}
+
+@media (max-width: 720px) {
+  .column-value {
+    display: none;
+  }
+
+  .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Silpasala surfaces (option A): cards sit on the surface tone with the card edge, and the active
+   item is a soft fill. Fields and dropdowns stay outlined. */
+.card,
+.stat,
+.stat-primary,
+.dash-panel,
+.bill-card,
+.dash-empty,
+.sidebar-link:hover {
+  background: var(--fill);
+  box-shadow: none;
+}
+
+.sidebar-link[aria-current="page"] {
+  background: var(--fill);
+  box-shadow: none;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sidebar-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--fill);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* Sidebar header: brand and the collapse button. */
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+/* Collapsed sidebar: icons only, with the labels and the footer details hidden. */
+.app-shell.is-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.app-shell.is-collapsed .sidebar {
+  padding: 20px 10px;
+}
+
+.app-shell.is-collapsed .sidebar-head {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-shell.is-collapsed .sidebar-brand span,
+.app-shell.is-collapsed .sidebar-label,
+.app-shell.is-collapsed .sidebar-link span,
+.app-shell.is-collapsed .sidebar-count,
+.app-shell.is-collapsed .sidebar-text {
+  display: none;
+}
+
+.app-shell.is-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 9px 0;
+}
+
+.app-shell.is-collapsed .sidebar-foot { align-items: center; }
+.app-shell.is-collapsed .sidebar-foot .theme-switch { flex-direction: column; align-self: center; }
+.app-shell.is-collapsed .user-btn { justify-content: center; padding: 6px 0; }
+
+/* Match Silpasala: fields, dropdowns, chips and table headers use the Basis fill, not outlines. */
+.input {
+  background-color: var(--fill);
+  box-shadow: none;
+}
+
+.input:hover:not(:disabled) {
+  box-shadow: none;
+}
+
+.input:focus {
+  box-shadow: 0 0 0 4px var(--focus);
+}
+
+.rs__control {
+  background: var(--fill);
+  box-shadow: none;
+}
+
+.rs__control:hover:not(:disabled),
+.rs__control--menu-is-open {
+  background: var(--fill-strong);
+  box-shadow: none;
+}
+
+.rs__control:focus-visible {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.rs__option--is-focused {
+  background: var(--fill);
+  box-shadow: none;
+}
+
+.rs__option--is-selected.rs__option--is-focused {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.pill {
+  background: var(--fill);
+  box-shadow: none;
+}
+
+.pill:hover {
+  background: var(--fill-strong);
+  box-shadow: none;
+}
+
+.pill[aria-checked="true"] {
+  background: var(--text);
+  box-shadow: none;
+}
+
+.table th {
+  background: var(--surface-2);
+}
+
+/* Sidebar, the Silpasala measurements: 252px wide on a surface, 60px header, section labels in
+   sentence case, 34px links, and the footer with the theme switch on top, then the user. */
+.app-shell {
+  grid-template-columns: 252px minmax(0, 1fr);
+}
+
+.app-shell.is-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.sidebar {
+  background: var(--surface);
+  box-shadow: none;
+  border-right: 1px solid var(--separator);
+}
+
+.sidebar-head {
+  height: 60px;
+  padding: 0 12px 0 16px;
+}
+
+.sidebar-groups {
+  gap: 0;
+  padding: 4px 10px 12px;
+}
+
+.sidebar-label {
+  margin: 18px 10px 6px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sidebar-nav {
+  gap: 2px;
+}
+
+.sidebar-link {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+
+.sidebar-link[aria-current="page"] {
+  border-radius: var(--radius-sm);
+}
+
+/* Sidebar footer, from Silpasala (app.css: sidebar-foot, sidebar-user). */
+.sidebar-foot { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-top: 1px solid var(--separator); flex-shrink: 0; }
+.sidebar-foot .theme-switch { align-self: flex-start; }
+.sidebar-user { display: block; }
+
+/* Date picker, from Silpasala (app.css: date-trigger and date-popover). */
+.date-trigger { display: flex; align-items: center; gap: 8px; min-height: 34px; text-align: left; cursor: pointer; }
+.date-trigger:hover:not(:disabled) { background: var(--fill-strong); }
+.date-trigger > svg { flex-shrink: 0; color: var(--muted); }
+.date-trigger.is-empty { color: var(--muted); }
+.date-trigger.is-overdue { color: var(--danger); background: var(--danger-soft); }
+.date-trigger.is-overdue > svg { color: var(--danger); }
+.date-trigger[aria-expanded="true"] { box-shadow: 0 0 0 4px var(--focus); }
+
+.date-popover {
+  /* Native popover: shown in the top layer, positioned by DatePicker. */
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 12px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--separator), 0 20px 48px rgb(0 0 0 / 0.25);
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--accent-soft);
+  --rdp-today-color: var(--accent);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-selected-border: 0;
+  --rdp-nav-height: 36px;
+}
+.date-popover:popover-open { animation: ds-pop 0.14s var(--ease); }
+.date-popover .rdp-root { font-size: var(--text-md); }
+.date-popover .rdp-month_caption { padding-left: 6px; font-size: 15px; font-weight: 600; }
+.date-popover .rdp-weekday { color: var(--muted); font-size: var(--text-xs); font-weight: 600; opacity: 1; }
+.date-popover .rdp-button_previous, .date-popover .rdp-button_next { width: 30px; height: 30px; border-radius: var(--radius-sm); }
+.date-popover .rdp-button_previous:hover, .date-popover .rdp-button_next:hover { background: var(--fill); }
+.date-popover .rdp-chevron { fill: var(--muted); width: 14px; height: 14px; }
+.date-popover .rdp-day_button { border-radius: 50%; color: var(--text); transition: background 0.12s; }
+.date-popover .rdp-day_button:hover { background: var(--fill); }
+.date-popover .rdp-outside .rdp-day_button { color: var(--muted); }
+.date-popover .rdp-today:not(.rdp-selected) .rdp-day_button { color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 1.5px var(--accent-soft); }
+.date-popover .rdp-selected { font-weight: 600; font-size: inherit; }
+.date-popover .rdp-selected .rdp-day_button { background: var(--accent); color: var(--on-accent); }
+.date-popover .rdp-day_button:focus-visible { box-shadow: 0 0 0 3px var(--focus); }
+.date-shortcuts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--separator); }
+.date-shortcuts .date-clear { margin-left: auto; color: var(--danger); }
+.select-popover, .date-popover, .info-pop {
+  transition: opacity 0.12s var(--ease), transform 0.12s var(--ease), overlay 0.12s allow-discrete, display 0.12s allow-discrete;
+}
+.select-popover:not(:popover-open), .date-popover:not(:popover-open), .info-pop:not(:popover-open) { opacity: 0; transform: translateY(-4px) scale(0.98); }
+
+/* Dialog scrim and actions, from Silpasala (app.css). */
+/* Dialogs: the dim, blurred layer behind them is .dialog-scrim (components/ui.tsx), not the
+   ::backdrop, whose blur Safari drops. It fades in with the box (the exit is played from motion.ts). */
+dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; }
+.dialog-scrim {
+  position: fixed; inset: 0; width: auto; height: auto; margin: 0; padding: 0; border: 0;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.dialog-scrim:popover-open { animation: fade-in 0.25s var(--ease); }
+.dialog-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+
+/* Page sections: every top-level block in the content area gets room above it, so headings and
+   cards never touch the block before them. */
+.app-main > .container > * + * {
+  margin-top: var(--space-6);
+}
+
+/* The dialog and its scrim are fixed to the screen, not page blocks: without this, the 24px above
+   applied to them too, and the dim layer started 24px down, leaving the top edge undimmed. */
+.app-main > .container > .dialog-scrim,
+.app-main > .container > dialog {
+  margin-top: 0;
+}
+
+.settings-section-head {
+  margin-bottom: var(--space-3);
+}
+
+/* Section titles sit close to their description; table headers blend into the card they sit in. */
+.section-heading + .hint {
+  margin: -8px 0 var(--space-3);
+}
+
+.card .table th {
+  background: transparent;
+}
+
+/* Account button, from Silpasala (app.css: user-btn). The popover is still placed by UserMenu. */
+.user-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius); background: transparent; color: var(--muted); font: inherit; text-align: left; cursor: pointer; }
+.user-btn:hover, .user-btn[aria-expanded="true"] { background: var(--fill); }
+.user-btn-text { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.25; }
+.user-btn-text strong { color: var(--text); font-size: var(--text-md); }
+.user-btn-text span { font-size: var(--text-xs); }
+
+.user-menu {
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  min-width: 220px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--separator), 0 16px 40px rgb(0 0 0 / 0.22);
+}
+
+.user-menu:popover-open {
+  animation: ds-pop 0.14s var(--ease);
+}
+
+.user-menu-head {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  font-size: var(--text-md);
+}
+
+.user-menu-head .hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.user-menu-divider {
+  margin: 6px 4px;
+  border: 0;
+  border-top: 1px solid var(--separator);
+}
+
+.user-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-menu-item:hover,
+.user-menu-item:focus-visible {
+  outline: none;
+  background: var(--fill);
+}
+
+
+/* Ask AI: the chat. Your questions sit on the right, the answers on the left. */
+.ask-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.ask-form .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ask-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ask-message p {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.ask-message.is-user {
+  justify-content: flex-end;
+}
+
+.ask-message.is-user p {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--fill);
+}
+
+/* Google Drive card in Settings, from Silpasala's Storage page (app.css: admin storage). */
+.storage-card { display: flex; flex-direction: column; gap: 18px; padding: 20px; }
+.storage-head { display: flex; align-items: center; gap: 14px; }
+.storage-head h2 { font-size: var(--text-lg); }
+.storage-logo { display: grid; place-items: center; width: 48px; height: 48px; border-radius: var(--radius-md); background: var(--surface-2); box-shadow: 0 0 0 1px var(--separator); flex-shrink: 0; }
+.storage-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.storage-stats > div { display: flex; flex-direction: column; padding: 10px 14px; border-radius: var(--radius-md); background: var(--surface-2); min-width: 120px; }
+.storage-stats strong { font-size: var(--text-lg); }
+.storage-stats span { font-size: var(--text-xs); color: var(--muted); }
+.storage-notes { margin: 0; padding-left: 18px; color: var(--muted); font-size: var(--text-md); display: flex; flex-direction: column; gap: 6px; }
+
+/* The page padding, from Silpasala (app.css: page). */
+.page {
+  padding-block: 28px 48px;
+}
+
+/* Steps for getting an API key, in the Ask AI card of Settings. */
+.ai-steps {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Donut chart (components/Donut.tsx): the ring with its total in the middle. */
+.donut-wrap {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 16px;
+}
+
+.donut-wrap svg {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* Budgets page: one row per scope, with its limit, progress and the input to change it. */
+.budget-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.budget-row:last-child {
+  border-bottom: 0;
+}
+
+.budget-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.budget-row .row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.budget-input {
+  max-width: 180px;
+}
+
+/* Transaction calendar (components/TransactionCalendar.tsx): a month grid with what was spent each day. */
+.tx-calendar .grow {
+  flex: 1;
+}
+
+.tx-calendar .text-center {
+  text-align: center;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cal-weekday {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-align: center;
+}
+
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 56px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.cal-cell:hover {
+  background: var(--fill);
+}
+
+.cal-cell.is-empty {
+  background: transparent;
+  cursor: default;
+}
+
+.cal-cell.is-today .cal-day {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.cal-cell.has-spend .cal-total {
+  color: var(--text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.cal-day {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.cal-total {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+/* Group headings in the phone "More" sheet, the same groups as the desktop sidebar (Silpasala's notif-day). */
+.more-group-label {
+  margin: 14px 2px 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.more-group:first-child .more-group-label {
+  margin-top: 4px;
+}
+
+/* The amount field is typed straight onto the page: no outline, border or focus ring around it. */
+.tx-amount .tx-amount-field input,
+.tx-amount .tx-amount-field input:focus,
+.tx-amount .tx-amount-field input:focus-visible {
+  border: 0;
+  box-shadow: none;
+  outline: none;
+  background: transparent;
+}
+
+/* Sources as cards (Settings): the bank badge, the balance or limit, and the actions. */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 12px;
+}
+
+.source-card-wide {
+  grid-column: 1 / -1;
+}
+
+.source-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.source-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.source-amount {
+  display: block;
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A bank or e-wallet badge: its colour and short code, standing in for the logo. */
+.bank-badge {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--bank-color);
+  color: var(--bank-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+/* A bank logo file inside the badge: the logo fits the square, on the surface colour. */
+.bank-badge-logo {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge);
+  overflow: hidden;
+  padding: 4px;
+}
+
+/* A bank logo file inside the badge: the logo fits the square, on the surface colour. */
+.bank-badge-logo {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge);
+  overflow: hidden;
+  padding: 4px;
+}
+
+.bank-badge-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Categories (Settings): a grid of tiles, icon buttons, and a round add button in the header. */
+.cat-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: var(--space-3);
+}
+
+.cat-add {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  cursor: pointer;
+}
+
+.cat-add:hover {
+  opacity: 0.85;
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 12px;
+}
+
+.cat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge), 0 1px 2px var(--shadow-color);
+}
+
+.cat-badge-lg {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.cat-tile-name {
+  max-width: 100%;
+  font-weight: 600;
+}
+
+.cat-tile-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: auto;
+}
+
+/* Category tile: the icon on the left, edit and delete on the right of the same row. */
+.cat-tile-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.cat-tile-actions {
+  display: flex;
+  gap: 2px;
+  margin: -4px -6px 0 0;
+}
+
+/* Source card actions: icon buttons in one row, at the bottom of the card. */
+.source-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: auto;
+}
+
+/* Sources as a swipeable row of wallet cards: each card takes its bank colour. */
+.source-grid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 2px 2px 12px;
+  scrollbar-width: none;
+}
+
+.source-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.source-grid > * {
+  flex: 0 0 min(320px, 86%);
+  scroll-snap-align: start;
+}
+
+.source-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
+  border: 0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--bank-color), color-mix(in srgb, var(--bank-color) 62%, #000));
+  color: var(--bank-text);
+  box-shadow: 0 14px 30px -14px rgb(0 0 0 / 0.45);
+}
+
+.source-card > .card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.source-card .text-muted {
+  color: inherit;
+  opacity: 0.72;
+}
+
+.source-card .source-amount {
+  color: inherit;
+}
+
+.source-card .bank-badge {
+  background: rgb(255 255 255 / 0.18);
+  color: inherit;
+  box-shadow: none;
+}
+
+.source-card .bank-badge-logo {
+  background: #fff;
+}
+
+.source-card .source-actions {
+  margin-top: auto;
+  justify-content: flex-end;
+}
+
+.source-card .source-actions .icon-btn {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.source-card .source-actions .icon-btn:hover {
+  background: rgb(255 255 255 / 0.16);
+  opacity: 1;
+}
+
+.source-card .source-actions .text-danger {
+  color: inherit;
+}
+
+/* The card being edited is a plain form, full width. */
+.source-card.source-card-wide {
+  flex-basis: 100%;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--card-edge);
+}
+
+/* The wallet slider runs to the screen edges, so cards are never cut off by the page padding. The first and
+   last card still line up with the content. */
+.source-grid {
+  margin-inline: calc(var(--gutter, 16px) * -1);
+  padding-inline: var(--gutter, 16px);
+  scroll-padding-inline: var(--gutter, 16px);
+}
+
+/* The phone bar's middle button: Add, in a round accent circle that stands out from the others. */
+.ds-bottom-nav-item.is-add {
+  color: var(--muted);
+}
+
+.bottom-add-circle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 6px 16px -6px var(--accent);
+}
+
+/* Workspace (Settings): photos for people, soft cards, icon buttons, and invitations as chips. */
+.ws-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.ws-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ws-hero {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+.ws-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ws-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ws-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ws-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ws-accept {
+  color: var(--success);
+}
+
+.ws-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: 10px;
+}
+
+.ws-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.ws-invite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  cursor: pointer;
+}
+
+.ws-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 12px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: var(--text-sm);
+}
+
+/* The login button: the primary button, so it reverses itself in dark mode. The Google mark sits on a
+   small circle in the button's own inverse colour, so it reads on both. */
+.login-google {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+  gap: 12px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-google:hover {
+  text-decoration: none;
+}
+
+.login-google-mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--on-accent);
+}
+
+/* Transactions filters on phones: a search box and a Filters button, with the rest in a side panel (the
+   same pattern as Silpasala). On larger screens the filters stay in the card above the list. */
+.tx-filter-mobile {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .tx-filter-mobile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: var(--space-4);
+  }
+
+  .tx-filter-desktop {
+    display: none;
+  }
+}
+
+.tx-filter-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--fill);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tx-filter-btn .filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+
+/* The filter panel slides in from the right edge, square, like Silpasala's. */
+.dialog.filter-sheet {
+  margin: 0 0 0 auto;
+  width: min(360px, 88vw);
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: -1px 0 0 var(--separator), -16px 0 48px rgb(0 0 0 / 0.18);
+}
+
+.dialog.filter-sheet[open] {
+  display: flex;
+  flex-direction: column;
+  animation: filter-sheet-in 0.28s var(--ease);
+}
+
+.filter-sheet .dialog-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.filter-sheet .dialog-footer {
+  justify-content: space-between;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.filter-sheet .dialog-footer .btn-primary {
+  flex: 1;
+}
+
+.filter-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@keyframes filter-sheet-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog.filter-sheet[open] {
+    animation: none;
+  }
+}
+
+/* Transactions filters on phones: the search box is as tall as the Filters button, so they line up. */
+.tx-filter-mobile .input {
+  height: 40px;
+  min-height: 40px;
+}
+
+/* Calendar: square, centred cells. A dot marks a day with spending on phones; the amount shows on wider
+   screens. The month changes by swiping (phones) or with the arrows (wider screens). */
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cal-title {
+  flex: 1;
+  text-align: center;
+}
+
+.cal-nav {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cal-summary {
+  text-align: center;
+}
+
+.cal-swipe {
+  touch-action: pan-y;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  animation: cal-slide 0.28s var(--ease);
+}
+
+@keyframes cal-slide {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--cal-dir, 1) * 28px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.cal-weekday {
+  padding: 4px 0;
+  text-align: center;
+}
+
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cal-cell:hover {
+  background: var(--fill);
+}
+
+.cal-cell.is-empty {
+  cursor: default;
+  background: transparent;
+}
+
+.cal-day {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-cell.is-today .cal-day {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.cal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.cal-total {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .cal-nav {
+    display: none;
+  }
+}
+
+@media (min-width: 721px) {
+  .cal-dot {
+    display: none;
+  }
+
+  .cal-total {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Reports: a period switch, a hero total, soft cards, rounded monthly bars, a donut with its legend, and the
+   month-by-month list with change chips. */
+.rep-periods {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.rep-period {
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rep-period[aria-selected="true"] {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.rep-custom {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 12px;
+  margin-bottom: var(--space-4);
+  padding: 16px;
+}
+
+.rep-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+  padding: 20px;
+}
+
+.rep-total {
+  font-size: clamp(30px, 6vw, 40px);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rep-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.rep-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  min-width: 0;
+}
+
+.rep-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: var(--space-4);
+  padding: 18px;
+}
+
+.rep-card-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.rep-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 180px;
+  padding-top: 18px;
+}
+
+.rep-bar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.rep-bar-value {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rep-bar-fill {
+  width: 100%;
+  max-width: 38px;
+  border-radius: 10px 10px 4px 4px;
+  background: var(--accent);
+  transition: height 0.4s var(--ease);
+}
+
+.rep-bar-label {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  text-transform: capitalize;
+}
+
+.rep-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.rep-grid > .rep-card {
+  margin-bottom: 0;
+}
+
+.rep-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rep-legend-row,
+.rep-month-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rep-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--cat-color);
+}
+
+.rep-months {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rep-month-row {
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--separator);
+}
+
+.rep-month-row:last-child {
+  border-bottom: 0;
+}
+
+.rep-change {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rep-change.is-up {
+  color: var(--warning);
+  background: var(--warning-soft);
+}
+
+.rep-change.is-down {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+/* Calendar arrows show on every screen, so the month can be changed by tap as well as by swipe. */
+@media (max-width: 720px) {
+  .cal-nav {
+    display: grid;
+  }
+}
+
+.cal-nav.is-prev svg {
+  transform: rotate(180deg);
+}
+
+/* Date picker, modern: a soft card with a shadow, round day buttons, the selected day filled, today ringed, and
+   the shortcuts as pills under a hairline. The trigger reads as a field with its icon. */
+.date-trigger {
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-md);
+  box-shadow: none;
+}
+
+.date-trigger:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+
+.date-trigger.is-empty {
+  color: var(--muted);
+}
+
+.date-trigger > svg {
+  color: var(--accent);
+}
+
+.date-trigger[aria-expanded="true"] {
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.date-popover {
+  width: min(328px, calc(100vw - 16px));
+  padding: 14px 14px 12px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge), 0 24px 48px -12px rgb(0 0 0 / 0.28), 0 4px 12px rgb(0 0 0 / 0.08);
+}
+
+.date-popover .rdp-root {
+  font-size: var(--text-md);
+}
+
+.date-popover .rdp-month_caption {
+  padding: 0 4px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.date-popover .rdp-weekdays {
+  margin-top: 6px;
+}
+
+.date-popover .rdp-weekday {
+  padding-bottom: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.date-popover .rdp-button_previous,
+.date-popover .rdp-button_next {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--fill);
+}
+
+.date-popover .rdp-button_previous:hover,
+.date-popover .rdp-button_next:hover {
+  background: var(--fill-strong);
+}
+
+.date-popover .rdp-day_button {
+  border-radius: 50%;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  transition: background 0.14s var(--ease), transform 0.12s var(--ease);
+}
+
+.date-popover .rdp-day_button:hover {
+  background: var(--fill);
+  transform: scale(1.06);
+}
+
+.date-popover .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.date-popover .rdp-selected .rdp-day_button {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 650;
+  box-shadow: 0 4px 10px -4px var(--accent);
+}
+
+.date-popover .rdp-selected .rdp-day_button:hover {
+  transform: none;
+}
+
+.date-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+
+.date-shortcuts .chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--fill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.date-shortcuts .chip:hover {
+  background: var(--fill-strong);
+}
+
+.date-shortcuts .date-clear {
+  color: var(--muted);
+}
+
+/* Month picker: the card with the year and the twelve months, in the date picker's style. */
+.month-popover {
+  width: min(296px, calc(100vw - 16px));
+  padding: 14px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge), 0 24px 48px -12px rgb(0 0 0 / 0.28), 0 4px 12px rgb(0 0 0 / 0.08);
+}
+.month-popover:popover-open { animation: ds-pop 0.14s var(--ease); }
+.month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 10px;
+  font-size: 16px;
+  font-weight: 650;
+}
+.month-nav {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--text);
+  cursor: pointer;
+}
+.month-nav:hover { background: var(--fill-strong); }
+.month-nav.is-prev svg { transform: rotate(180deg); }
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.month-cell {
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.14s var(--ease), transform 0.12s var(--ease);
+}
+.month-cell:hover:not(:disabled) { background: var(--fill); transform: scale(1.04); }
+.month-cell:disabled { color: var(--muted); opacity: 0.4; cursor: default; }
+.month-cell.is-current { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); }
+.month-cell.is-selected { background: var(--accent); color: var(--on-accent); box-shadow: 0 4px 10px -4px var(--accent); }
+.month-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+.month-foot .chip { padding: 5px 12px; border-radius: 999px; background: var(--fill); font-size: var(--text-sm); font-weight: 600; }
+.month-foot .chip:disabled { opacity: 0.4; }
+
+/* The month card is a fixed popover placed under its field (MonthPicker sets top and left). */
+.month-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+}
+
+/* Installment row: the 'record paid months' form opens underneath the row, full width, with its button on the right. */
+.rec-row {
+  flex-wrap: wrap;
+}
+
+.rec-fill {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--separator);
+}
+
+.rec-fill .form-actions {
+  justify-content: flex-end;
+}
+
+/* Loading screen (Boot.tsx): the bars grow in turn, the same as the preloader in index.html. */
+.boot .bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: boot-bar 1.4s ease-in-out infinite;
+}
+
+.boot .bar-2 {
+  animation-delay: 0.18s;
+}
+
+.boot .bar-3 {
+  animation-delay: 0.36s;
+}
+
+@keyframes boot-bar {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot .bar {
+    animation: none;
+  }
+}
+
+/* Pager under a long list: previous and next chevrons, and the page number between them. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 0 4px;
+}
+
+.pager-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pager-btn:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+
+.pager-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pager-btn.is-prev svg {
+  transform: rotate(180deg);
+}
+
+.pager-status {
+  min-width: 9ch;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Dropdown on touch screens: the list scrolls with a finger and keeps its scrolling inside the panel; the search
+   box uses 16px text, so iPhones don't zoom in on it. */
+.rs__menu-list {
+  max-height: min(300px, 50dvh);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.rs-pop .rs__input-container input {
+  font-size: 16px;
+}
+
+/* The dropdown panel is clipped, not scrollable: opening it scrolls the selected item into view, and with
+   overflow:hidden that also moved the search box over the first item. clip keeps the rounded corners. */
+.select-popover {
+  overflow: clip;
+}
+
+/* The dropdown opens without its entrance animation: react-select measures the list to scroll the selected
+   item into view, and a panel still scaling in made that measurement wrong (the first item was pushed under
+   the search box). */
+.select-popover:popover-open {
+  animation: none;
+}
+
+.select-popover,
+.select-popover:not(:popover-open) {
+  transition: none;
+  transform: none;
+  opacity: 1;
+}
+
+/* Pager under a long list: a bar with Previous and Next pills, and the page numbers in round buttons; the current
+   page is filled with the accent colour. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge);
+}
+
+.pager-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pager-step:hover:not(:disabled) {
+  background: var(--fill-strong);
+}
+
+.pager-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pager-step-icon-prev {
+  transform: rotate(180deg);
+}
+
+.pager-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pager-page {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pager-page:hover {
+  background: var(--fill);
+  color: var(--text);
+}
+
+.pager-page[aria-current="page"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.pager-gap {
+  padding: 0 2px;
+  color: var(--muted);
+}
+
+@media (max-width: 480px) {
+  .pager-step span {
+    display: none;
+  }
+
+  .pager-step {
+    width: 36px;
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+/* Due next month on phones: the cards become a swipeable row that runs to the screen edges, like the wallet cards. */
+@media (max-width: 720px) {
+  .bill-slider {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin-inline: calc(var(--gutter, 16px) * -1);
+    padding: 2px var(--gutter, 16px) 12px;
+    scroll-padding-inline: var(--gutter, 16px);
+    scrollbar-width: none;
+  }
+
+  .bill-slider::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bill-slider > * {
+    flex: 0 0 min(300px, 84%);
+    scroll-snap-align: start;
+  }
+}
+
+/* Payment history on Installments: the name and the dates wrap on their own lines; the amount never wraps. */
+.rec-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rec-history-row .source-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rec-history-row .source-name,
+.rec-history-row .source-meta {
+  overflow-wrap: anywhere;
+}
+
+.rec-history-row .amount {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Page header on phones: the title and its button share the top row, and the contents align to the top. */
+@media (max-width: 720px) {
+  .page-header {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+
+  .page-header > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .page-header > .btn {
+    flex-shrink: 0;
+  }
+}
+
+/* Side panel: part of the layout, like the sidebar. On wide screens it is a column beside the page content,
+   sticky at the top, and it only takes its column while it is open (components/SidePanel.tsx). */
+/* The app column: the page container, then an empty column on the right that a side panel fills. The column is
+   outside the container, so the page's spacing does not reach it, and it stays sticky under the top edge. */
+.app-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.app-side:empty {
+  display: none;
+}
+
+.app-side {
+  position: sticky;
+  top: 0;
+  width: 420px;
+  height: 100vh;
+  height: 100dvh;
+  align-self: start;
+}
+
+/* Copied from the left sidebar: the same surface and edge, and its head (ds-sidebar-head) at the top. Only the body scrolls. */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--separator);
+}
+
+.side-panel-title {
+  min-width: 0;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.side-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 16px;
+}
+
+/* Below 1024px the add form is a drawer that slides out from the right edge, like the sidebar on the left
+   (SidePanel.tsx). It replaces the centred popup that Basis uses on touch phones. */
+@media (max-width: 1023px) {
+  .dialog.ds-side-panel {
+    /* On close the drawer slides back out to the right (motion.ts reads --leave). */
+    --leave: right;
+    width: min(400px, 88vw);
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    margin: 0 0 0 auto;
+    border-radius: 0;
+    box-shadow: -1px 0 0 var(--separator), -16px 0 48px rgb(0 0 0 / 0.18);
+  }
+
+  .dialog.ds-side-panel[open] {
+    display: flex;
+    flex-direction: column;
+    animation: ds-side-panel-in 0.28s var(--ease);
+  }
+}
+
+/* Add expense in the side panel: a large amount, method as a segmented control, rounded category tiles and a
+   full-width save button. Scoped to the panel, so History's edit form keeps its own look. */
+.side-panel-scope .tx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.side-panel-scope .tx-amount {
+  padding: 16px 18px 14px;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.side-panel-scope .tx-amount-label,
+.side-panel-scope .tx-field-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.side-panel-scope .tx-amount-field input {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.side-panel-scope .tx-amount-prefix {
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.side-panel-scope .tx-amount-hint {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* Method and source: a segmented control, the selected one lifted onto the surface. */
+.side-panel-scope .tx-form .chip-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--fill);
+}
+
+.side-panel-scope .tx-form .chip-row .pill {
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.side-panel-scope .tx-form .chip-row .pill[aria-checked='true'] {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 2px 8px rgb(0 0 0 / 0.06);
+}
+
+.side-panel-scope .tx-form .category-grid {
+  gap: 8px;
+}
+
+.side-panel-scope .tx-form .category-option {
+  border-radius: 14px;
+  padding: 10px 6px;
+}
+
+.side-panel-scope .tx-form .input {
+  height: 44px;
+  border-radius: 12px;
+}
+
+.side-panel-scope .tx-form .tx-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.side-panel-scope .tx-form .tx-grid > .tx-field:last-child {
+  grid-column: 1 / -1;
+}
+
+.side-panel-scope .tx-form .form-actions {
+  margin-top: 4px;
+}
+
+.side-panel-scope .tx-form .form-actions .btn-primary {
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* The panel never scrolls sideways: method and source options shrink to their column and wrap their labels. */
+.side-panel-body {
+  overflow-x: hidden;
+}
+
+.side-panel-scope .tx-form .chip-row .pill {
+  min-width: 0;
+  padding: 8px 6px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
+}
+
+/* The selected option sits on the light surface, so its text must be the normal text colour, not the
+   light-on-dark colour Basis uses on a dark selected chip. */
+.side-panel-scope .tx-form .chip-row .pill[aria-checked='true'] {
+  color: var(--text);
+}
+
+/* Category tiles take the tint of their icon, the same colour as the icon's background. The tile is a little
+   lighter than the icon, so the text stays easy to read. Used by the transaction form and Categories. */
+.side-panel-scope .tx-form .category-option {
+  background: color-mix(in srgb, var(--cat-color) 12%, transparent);
+  box-shadow: none;
+}
+
+.cat-tile {
+  background: color-mix(in srgb, var(--cat-color) 12%, var(--surface));
+}
+
+/* The selected category keeps its outline, even with the tinted tile above. */
+.side-panel-scope .tx-form .category-option[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+/* The selected method, source and category read as the app's dark selection, as on the other chips. */
+.side-panel-scope .tx-form .chip-row .pill[aria-checked='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+
+/* The form never scrolls sideways: categories stack in one column, and nothing inside is wider than the panel. */
+.side-panel-scope {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.side-panel-scope .tx-form .category-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.side-panel-scope .tx-form * {
+  min-width: 0;
+}
+
+/* Clipping cut off the selection outline and the chip icons were squeezed. The category grid already fits the
+   panel in one column, so the panel can show its outlines and keep each chip's icon at its natural width. */
+.side-panel-scope {
+  overflow-x: visible;
+}
+
+.side-panel-scope .tx-form * {
+  min-width: auto;
+}
+
+/* Payment method: four equal tiles, the icon above the label, so no label wraps unevenly next to another. */
+.side-panel-scope .tx-form .chip-row:has(.pill > span[aria-hidden='true']) {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.side-panel-scope .tx-form .chip-row:has(.pill > span[aria-hidden='true']) .pill {
+  flex-direction: column;
+  gap: 4px;
+  min-height: 60px;
+  padding: 8px 4px;
+  font-size: 12px;
+}
+
+.side-panel-scope .tx-form .chip-row:has(.pill > span[aria-hidden='true']) .pill > span[aria-hidden='true'] {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* The amount field fills its box. Its default input width (about 20 characters at 34px) is wider than the panel,
+   which made the panel scroll sideways. */
+.side-panel-scope .tx-amount {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.side-panel-scope .tx-amount-field {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.side-panel-scope .tx-amount-field input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Reports: each category under the donut is a row with its icon, name and amount, and a thin bar in the
+   category's colour showing its share. */
+.rep-legend-item {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.rep-legend-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rep-legend-item .bar-track {
+  height: 6px;
+}
+
+/* The donut's centre text keeps clear of the ring: a larger donut, room at each side, and a long total may wrap. */
+.donut-wrap {
+  width: 184px;
+  height: 184px;
+}
+
+.donut-center {
+  padding: 0 16px;
+}
+
+.donut-center strong {
+  font-size: 14px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* Recent transactions on Home: each row is a rounded tile tinted with its category colour, the same as the
+   category tiles in the Add expense panel. */
+.recent-tile {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--cat-color) 12%, transparent);
+}
+
+.recent-list:has(> .recent-tile) {
+  gap: 8px;
+}
+
+/* Storage and Ask AI card heads: the status badge stays at the top right, level with the title, and long text
+   (an email) wraps inside its column instead of running under the badge on phones. */
+.storage-head {
+  align-items: flex-start;
+}
+
+.storage-head > .grow {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.storage-head > .badge {
+  flex-shrink: 0;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* History on phones: the rows match the recent transactions on Home, as tinted rounded tiles with a gap between them. */
+@media (max-width: 720px) {
+  .tx-list {
+    display: grid;
+    gap: 8px;
+  }
+}
+
+.tx-item.recent-tile {
+  border-bottom: 0;
+}
