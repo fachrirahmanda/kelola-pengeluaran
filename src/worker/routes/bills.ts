@@ -1,5 +1,6 @@
 import { billPeriodOf, closesOn, dueOn } from '../../shared/billing';
 import { isBilledKind, type OpenBill, type PaidBill, type SourceKind } from '../../shared/types';
+import type { Env } from '../env';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
 
@@ -20,8 +21,8 @@ interface SourceRow {
   payment_day: number | null;
 }
 
-/** GET /api/bills: open bills (unpaid, by period and source) and the paid bill history. */
-export async function listBills({ env, userId }: RouteContext) {
+/** The open bills of a data set: unpaid credit and paylater purchases, grouped by billing period and source. */
+export async function openBillsOf(env: Env, userId: string): Promise<OpenBill[]> {
   const { results: sources } = await env.DB.prepare(
     'SELECT id, name, kind, closing_day, payment_day FROM payment_sources WHERE user_id = ? AND kind IN (?, ?)',
   )
@@ -60,6 +61,12 @@ export async function listBills({ env, userId }: RouteContext) {
     }
   }
   open.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  return open;
+}
+
+/** GET /api/bills: open bills (unpaid, by period and source) and the paid bill history. */
+export async function listBills({ env, userId }: RouteContext) {
+  const open = await openBillsOf(env, userId);
 
   const { results: paidRows } = await env.DB.prepare(
     `SELECT b.id, b.source_id, s.name AS source_name, b.period, b.total, b.transaction_count, b.paid_on

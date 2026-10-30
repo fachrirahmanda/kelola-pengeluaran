@@ -199,3 +199,30 @@ export interface Invitation {
   ownerEmail: string;
   createdAt: string;
 }
+
+export type NotificationKind =
+  | 'invite_received'
+  | 'invite_accepted'
+  | 'invite_declined'
+  | 'member_removed'
+  | 'member_left'
+  | 'data_created'
+  | 'data_updated'
+  | 'data_deleted'
+  | 'bill_due';
+
+/** One notification for the signed-in person. `data` holds the values its message is built from. */
+export interface AppNotification {
+  id: string;
+  kind: NotificationKind;
+  data: Record<string, string | number>;
+  createdAt: number;
+  read: boolean;
+}
+
+/** The notifications the app shows: the newest ones, or the ones after a time (for popups), and the unread count. */
+export interface NotificationFeed {
+  items: AppNotification[];
+  unread: number;
+  now: number;
+}

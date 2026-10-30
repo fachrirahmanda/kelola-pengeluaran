@@ -1,5 +1,6 @@
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { nameOf, notify } from '../notify';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -96,6 +97,8 @@ export async function invite({ request, env, actorId, userId, role }: RouteConte
     if (String(error).includes('UNIQUE')) throw new HttpError(409, 'Undangan untuk email ini sudah dikirim');
     throw error;
   }
+  const invitee = await env.DB.prepare('SELECT id FROM users WHERE lower(email) = ?').bind(email).first<{ id: string }>();
+  if (invitee) await notify(env, [invitee.id], 'invite_received', { owner: await nameOf(env, userId) }, `invite:${id}`);
   return json({ invite: { id, email, createdAt: new Date().toISOString() } }, 201);
 }
 
@@ -130,14 +133,19 @@ export async function acceptInvite({ env, actorId, params }: RouteContext) {
     env.DB.prepare("UPDATE workspace_members SET owner_id = ?, role = 'member' WHERE user_id = ?").bind(invite.owner_id, actorId),
     env.DB.prepare('DELETE FROM workspace_invites WHERE id = ?').bind(invite.id),
   ]);
+  await notify(env, [invite.owner_id], 'invite_accepted', { name: await nameOf(env, actorId) });
   return json({ ok: true });
 }
 
 /** POST /api/workspace/invites/:id/decline */
 export async function declineInvite({ env, actorId, params }: RouteContext) {
   const email = await actorEmail(env, actorId);
-  const result = await env.DB.prepare('DELETE FROM workspace_invites WHERE id = ? AND email = ?').bind(params.id, email).run();
-  if (result.meta.changes === 0) throw new HttpError(404, 'Undangan tidak ditemukan');
+  const invite = await env.DB.prepare('SELECT owner_id FROM workspace_invites WHERE id = ? AND email = ?')
+    .bind(params.id, email)
+    .first<{ owner_id: string }>();
+  if (!invite) throw new HttpError(404, 'Undangan tidak ditemukan');
+  await env.DB.prepare('DELETE FROM workspace_invites WHERE id = ?').bind(params.id).run();
+  await notify(env, [invite.owner_id], 'invite_declined', { email });
   return json({ ok: true });
 }
 
@@ -152,12 +160,17 @@ export async function removeMember({ env, userId, role, params }: RouteContext) 
     .bind(params.userId, userId)
     .run();
   if (result.meta.changes === 0) throw new HttpError(404, 'Anggota tidak ditemukan');
+  await notify(env, [params.userId], 'member_removed', { owner: await nameOf(env, userId) });
   return json({ ok: true });
 }
 
 /** POST /api/workspace/leave: a member leaves the data and gets their own back. */
 export async function leaveWorkspace({ env, actorId, role }: RouteContext) {
   if (role !== 'member') throw new HttpError(400, 'Pemilik data tidak bisa keluar dari datanya sendiri');
+  const membership = await env.DB.prepare("SELECT owner_id FROM workspace_members WHERE user_id = ? AND role = 'member'")
+    .bind(actorId)
+    .first<{ owner_id: string }>();
   await env.DB.prepare("UPDATE workspace_members SET owner_id = user_id, role = 'owner' WHERE user_id = ? AND role = 'member'").bind(actorId).run();
+  if (membership) await notify(env, [membership.owner_id], 'member_left', { name: await nameOf(env, actorId) });
   return json({ ok: true });
 }
