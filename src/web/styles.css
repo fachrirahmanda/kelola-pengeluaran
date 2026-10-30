@@ -447,6 +447,10 @@ select.input,
   gap: var(--space-3);
 }
 
+.settings-body {
+  min-height: 70vh;
+}
+
 .settings-section-head h3 {
   margin: 0 0 4px;
 }
