@@ -1945,7 +1945,7 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   gap: 6px;
 }
 
-/* Donut chart (components/Donut.tsx): rounded segments, a ring of ticks, and the total in the middle. */
+/* Donut chart (components/Donut.tsx): rounded segments that grow around the ring, and the total in the middle. */
 .donut-wrap {
   position: relative;
   width: 180px;
@@ -1956,12 +1956,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 .donut-wrap svg {
   width: 100%;
   height: 100%;
-}
-
-.donut-ticks line {
-  stroke: var(--muted);
-  stroke-opacity: 0.4;
-  stroke-width: 0.8;
 }
 
 .donut-center {
