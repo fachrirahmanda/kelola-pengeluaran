@@ -401,10 +401,10 @@ function SourceCards({ sources, editingId, onEdit, onIncome, onRemove, onSave, o
                     <Icon name="plus" size={15} />
                   </button>
                 )}
-                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={() => onEdit(source.id)} aria-label={t('cat.edit')} title={t('cat.edit')}>
+                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => onEdit(source.id)} aria-label={t('cat.edit')} title={t('cat.edit')}>
                   <Icon name="edit" size={15} />
                 </button>
-                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain text-danger" onClick={() => onRemove(source)} aria-label={t('cat.delete')} title={t('cat.delete')}>
+                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft text-danger" onClick={() => onRemove(source)} aria-label={t('cat.delete')} title={t('cat.delete')}>
                   <Icon name="trash" size={15} />
                 </button>
               </div>
