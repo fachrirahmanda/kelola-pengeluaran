@@ -114,6 +114,9 @@
   .ds-app,
   .ds-app.is-collapsed {
     grid-template-columns: minmax(0, 1fr);
+    /* Content starts right under the top bar instead of being centered in the leftover height. */
+    align-content: start;
+    gap: 0;
   }
 
   .ds-sidebar {
@@ -445,10 +448,6 @@ select.input,
 .settings-section {
   display: grid;
   gap: var(--space-3);
-}
-
-.settings-body {
-  min-height: 70vh;
 }
 
 .settings-section-head h3 {
