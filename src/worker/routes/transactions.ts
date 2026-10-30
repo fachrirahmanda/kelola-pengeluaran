@@ -3,6 +3,7 @@ import { METHODS, isBilledKind, type Method, type SourceKind, type Transaction, 
 import { billPeriodOf } from '../../shared/billing';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { notifyDataChange } from '../notify';
 
 // Upper bound for one transaction (Rp 1 triliun). Guards against typos and unsafe integers.
 const MAX_AMOUNT = 1_000_000_000_000;
@@ -153,7 +154,7 @@ async function postingOf(db: D1Database, userId: string, input: TransactionInput
 }
 
 /** POST /api/transactions */
-export async function createTransaction({ request, env, userId }: RouteContext) {
+export async function createTransaction({ request, env, userId, actorId }: RouteContext) {
   const input = await parseTransaction(env.DB, userId, await readJson(request));
   const posting = await postingOf(env.DB, userId, input);
   const id = crypto.randomUUID();
@@ -164,6 +165,7 @@ export async function createTransaction({ request, env, userId }: RouteContext) 
   )
     .bind(id, userId, input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, posting.status, posting.postedOn)
     .run();
+  await notifyDataChange(env, userId, actorId, 'data_created', input.amount);
   return json({ transaction: { id, ...input, ...posting } }, 201);
 }
 
@@ -171,7 +173,7 @@ export async function createTransaction({ request, env, userId }: RouteContext) 
  * PUT /api/transactions/:id. A credit transaction whose bill is paid is locked: only its note and
  * category can change, so the paid bill keeps matching its transactions.
  */
-export async function updateTransaction({ request, env, userId, params }: RouteContext) {
+export async function updateTransaction({ request, env, userId, actorId, params }: RouteContext) {
   const existing = await env.DB.prepare('SELECT occurred_on, amount, method, source_id, status, posted_on FROM transactions WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)
     .first<{ occurred_on: string; amount: number; method: Method; source_id: string | null; status: TransactionStatus; posted_on: string | null }>();
@@ -199,14 +201,15 @@ export async function updateTransaction({ request, env, userId, params }: RouteC
     .bind(input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, posting.status, posting.postedOn, params.id, userId)
     .run();
 
+  await notifyDataChange(env, userId, actorId, 'data_updated', input.amount);
   return json({ transaction: { id: params.id, ...input, ...posting } });
 }
 
 /** DELETE /api/transactions/:id. A credit transaction in a paid bill cannot be deleted. */
-export async function deleteTransaction({ env, userId, params }: RouteContext) {
-  const existing = await env.DB.prepare('SELECT method, status FROM transactions WHERE id = ? AND user_id = ?')
+export async function deleteTransaction({ env, userId, actorId, params }: RouteContext) {
+  const existing = await env.DB.prepare('SELECT method, status, amount FROM transactions WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)
-    .first<{ method: Method; status: TransactionStatus }>();
+    .first<{ method: Method; status: TransactionStatus; amount: number }>();
   if (!existing) throw new HttpError(404, 'Transaksi tidak ditemukan');
   if (existing.method === 'credit' && existing.status === 'posted') {
     throw new HttpError(409, 'Transaksi ini sudah masuk tagihan yang lunas dan tidak bisa dihapus.');
@@ -218,5 +221,6 @@ export async function deleteTransaction({ env, userId, params }: RouteContext) {
   const files = await env.DB.prepare('SELECT drive_file_id FROM attachments WHERE transaction_id = ?').bind(params.id).all<{ drive_file_id: string }>();
   await env.DB.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').bind(params.id, userId).run();
   if (files.results.length) await deleteFiles(env, files.results.map((row) => row.drive_file_id));
+  await notifyDataChange(env, userId, actorId, 'data_deleted', existing.amount);
   return json({ ok: true });
 }

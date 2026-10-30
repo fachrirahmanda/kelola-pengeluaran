@@ -10,6 +10,7 @@ import { ThemeSwitch } from './ThemeSwitch';
 import { Icon } from './Icon';
 import { UserMenu } from './UserMenu';
 import { Dialog } from './Dialog';
+import { NotificationList, useNotifications } from './Notifications';
 import { SideSlotContext } from './SidePanel';
 
 const ICON = {
@@ -81,6 +82,7 @@ export function Layout() {
   const { state, reload } = useWorkspace();
   const { bills } = useBills();
   const invitations = state?.invitations ?? [];
+  const { items: notifications, unread, markRead } = useNotifications();
   const openBills = bills?.open.length ?? 0;
   const [more, setMore] = useState(false);
   const [account, setAccount] = useState(false);
@@ -175,9 +177,18 @@ export function Layout() {
         <NavLink to="/ask" className="icon-btn icon-btn-plain" aria-label={t('nav.ask')} title={t('nav.ask')}>
           <Icon name="sparkle" size={18} />
         </NavLink>
-        <button type="button" className="icon-btn icon-btn-plain" onClick={() => setNotices(true)} aria-label={t('nav.notifications')} title={t('nav.notifications')}>
+        <button
+          type="button"
+          className="icon-btn icon-btn-plain"
+          onClick={() => {
+            setNotices(true);
+            markRead();
+          }}
+          aria-label={t('nav.notifications')}
+          title={t('nav.notifications')}
+        >
           <Icon name="bell" size={18} />
-          {invitations.length > 0 && <span className="badge">{invitations.length}</span>}
+          {invitations.length + unread > 0 && <span className="badge">{invitations.length + unread}</span>}
         </button>
         {user && (
           <button type="button" className="ds-mobile-avatar" onClick={() => setAccount(true)} aria-label={t('nav.account')}>
@@ -223,24 +234,29 @@ export function Layout() {
       </Dialog>
 
       <Dialog open={notices} onClose={() => setNotices(false)} title={t('nav.notifications')} className="ds-notif-sheet">
-        {invitations.length === 0 ? (
+        {invitations.length === 0 && notifications.length === 0 ? (
           <p className="text-sm text-muted">{t('nav.noNotifications')}</p>
         ) : (
-          <div className="ds-notif-list">
-            {invitations.map((invitation) => (
-              <div key={invitation.id} className="ds-notif-item is-new">
-                <span className="avatar avatar-sm" aria-hidden="true">{initialsOf(invitation.ownerName, invitation.ownerEmail)}</span>
-                <div className="ds-notif-body">
-                  <span className="ds-notif-text">{t('ws.banner', { owner: invitation.ownerName || invitation.ownerEmail })}</span>
-                  <span className="ds-notif-meta">{t('ws.invitedOn', { date: formatDate(invitation.createdAt.slice(0, 10), lang) })}</span>
-                  <div className="row-actions">
-                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => void respond(invitation.id, 'decline')}>{t('ws.decline')}</button>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => void respond(invitation.id, 'accept')}>{t('ws.accept')}</button>
+          <>
+            {invitations.length > 0 && (
+              <div className="ds-notif-list">
+                {invitations.map((invitation) => (
+                  <div key={invitation.id} className="ds-notif-item is-new">
+                    <span className="avatar avatar-sm" aria-hidden="true">{initialsOf(invitation.ownerName, invitation.ownerEmail)}</span>
+                    <div className="ds-notif-body">
+                      <span className="ds-notif-text">{t('ws.banner', { owner: invitation.ownerName || invitation.ownerEmail })}</span>
+                      <span className="ds-notif-meta">{t('ws.invitedOn', { date: formatDate(invitation.createdAt.slice(0, 10), lang) })}</span>
+                      <div className="row-actions">
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => void respond(invitation.id, 'decline')}>{t('ws.decline')}</button>
+                        <button type="button" className="btn btn-primary btn-sm" onClick={() => void respond(invitation.id, 'accept')}>{t('ws.accept')}</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+            {notifications.length > 0 && <NotificationList items={notifications} />}
+          </>
         )}
       </Dialog>
 
