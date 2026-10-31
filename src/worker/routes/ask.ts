@@ -53,6 +53,8 @@ const FINANCE_GUIDE = [
   '- Effective-rate (annuity) loan: monthly payment = P * r / (1 - (1 + r)^-n), where r = yearly rate / 12 and n = months.',
   '- Compound growth: P * (1 + r)^n. Saving A every month for n months at monthly rate r: A * ((1 + r)^n - 1) / r. Without interest, the monthly amount for a goal is goal / months.',
   '- Rules of thumb: 50/30/20 (needs, wants, savings), an emergency fund of 3 to 6 months of expenses, and paying a credit card bill in full by its due date to avoid interest.',
+  '- Indonesian amounts: rb or ribu is a thousand, jt or juta a million, M, miliar or milyar a billion (1.000.000.000), T or triliun a trillion. A comma is the decimal point: 2,7 M is Rp2.700.000.000 and 7,5 jt is Rp7.500.000.',
+  '- A price ("harga", "seharga", "cash") is the whole price of the thing, not a monthly payment. For a house loan (KPR) or car loan without terms, say the down payment, tenor and rate you assume and give the monthly installment for them, then compare it with the person’s income.',
 ].join('\n');
 
 /** The calculator (see calc.ts): the model writes calculations, the Worker works them out. */

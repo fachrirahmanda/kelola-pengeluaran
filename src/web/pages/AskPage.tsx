@@ -57,6 +57,13 @@ export function AskPage() {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
 
+  // While the composer is in use on a phone, the bottom bar is hidden (see .is-typing in styles.css): iOS lifts
+  // it above the keyboard, where it covers the conversation.
+  const setTyping = (typing: boolean) => {
+    document.documentElement.classList.toggle('is-typing', typing);
+  };
+  useEffect(() => () => setTyping(false), []);
+
   // The composer grows to show everything typed, up to COMPOSER_MAX_HEIGHT.
   useLayoutEffect(() => {
     const input = composer.current;
@@ -216,23 +223,27 @@ export function AskPage() {
         )}
       </div>
 
-      <form className="ask-composer" onSubmit={submit}>
-        <textarea
-          ref={composer}
-          className="ask-input"
-          rows={1}
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={onComposerKey}
-          placeholder={t('ask.placeholder')}
-          aria-label={t('ask.placeholder')}
-          maxLength={1000}
-          autoComplete="off"
-        />
-        <button type="submit" className="ask-send" disabled={busy || !question.trim()} aria-label={t('ask.send')} title={t('ask.send')}>
-          <Icon name="send" size={18} />
-        </button>
-      </form>
+      <div className="ask-dock">
+        <form className="ask-composer" onSubmit={submit}>
+          <textarea
+            ref={composer}
+            className="ask-input"
+            rows={1}
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={onComposerKey}
+            onFocus={() => setTyping(true)}
+            onBlur={() => setTyping(false)}
+            placeholder={t('ask.placeholder')}
+            aria-label={t('ask.placeholder')}
+            maxLength={1000}
+            autoComplete="off"
+          />
+          <button type="submit" className="ask-send" disabled={busy || !question.trim()} aria-label={t('ask.send')} title={t('ask.send')}>
+            <Icon name="send" size={18} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
