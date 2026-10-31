@@ -372,6 +372,11 @@ select.input,
   font-size: var(--text-lg);
 }
 
+/* A button at the foot of a dashboard panel: sits at the start, at its own width. */
+.dash-panel-action {
+  justify-self: start;
+}
+
 .dash-link {
   font-size: var(--text-sm);
   color: var(--muted);
