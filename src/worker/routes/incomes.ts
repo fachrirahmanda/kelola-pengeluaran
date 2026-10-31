@@ -1,6 +1,7 @@
 import type { Income } from '../../shared/types';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { recordActivity } from '../notify';
 import { syncSalaries } from './salaries';
 import { balanceOf } from './sources';
 
@@ -35,8 +36,10 @@ export async function listIncomes({ env, userId }: RouteContext) {
 }
 
 /** POST /api/sources/:id/income { amount, occurredOn, note? }: a one-off income. */
-export async function addIncome({ request, env, userId, params }: RouteContext) {
-  const source = await env.DB.prepare("SELECT id FROM payment_sources WHERE id = ? AND user_id = ? AND kind = 'savings'").bind(params.id, userId).first();
+export async function addIncome({ request, env, userId, actorId, params }: RouteContext) {
+  const source = await env.DB.prepare("SELECT id, name FROM payment_sources WHERE id = ? AND user_id = ? AND kind = 'savings'")
+    .bind(params.id, userId)
+    .first<{ id: string; name: string }>();
   if (!source) throw new HttpError(404, 'Dompet tidak ditemukan');
   const body = await readJson(request);
   const amount = typeof body.amount === 'number' ? Math.round(body.amount) : 0;
@@ -47,6 +50,7 @@ export async function addIncome({ request, env, userId, params }: RouteContext) 
   await env.DB.prepare('INSERT INTO incomes (id, user_id, source_id, occurred_on, amount, note) VALUES (?, ?, ?, ?, ?, ?)')
     .bind(crypto.randomUUID(), userId, params.id, body.occurredOn, amount, note)
     .run();
+  await recordActivity(env, userId, actorId, 'income_added', { source: source.name, amount, note });
   return json({ ok: true }, 201);
 }
 

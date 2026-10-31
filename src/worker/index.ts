@@ -21,6 +21,7 @@ import { catchUpRecurring, createRecurring, deleteRecurring, listRecurring, payR
 import { createCategory, deleteCategory, listCategories, updateCategory } from './routes/categories';
 import { createTransaction, deleteTransaction, listTransactions, updateTransaction } from './routes/transactions';
 import { listNotifications, markNotificationsRead, syncNotifications } from './routes/notifications';
+import { listActivity } from './routes/activity';
 
 // API. The React app is served from Workers Assets; only /api/* reaches this Worker.
 // Each route keeps its handler; `auth` routes need a session and get the data owner's id.
@@ -110,6 +111,7 @@ const routes: [Method, string, boolean, Handler][] = [
   ['GET', '/notifications', true, listNotifications],
   ['POST', '/notifications/read', true, markNotificationsRead],
   ['POST', '/notifications/sync', true, syncNotifications],
+  ['GET', '/activity', true, listActivity],
 ];
 
 /** Builds the handler's context. For signed-in routes this checks the session first. */

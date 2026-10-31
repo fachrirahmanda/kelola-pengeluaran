@@ -1,6 +1,6 @@
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
-import { nameOf, notify } from '../notify';
+import { nameOf, notify, recordActivity } from '../notify';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -100,6 +100,7 @@ export async function invite({ request, env, actorId, userId, role }: RouteConte
   }
   const invitee = await env.DB.prepare('SELECT id FROM users WHERE lower(email) = ?').bind(email).first<{ id: string }>();
   if (invitee) await notify(env, [invitee.id], 'invite_received', { owner: await nameOf(env, userId) }, `invite:${id}`);
+  await recordActivity(env, userId, actorId, 'invite_sent', { email });
   return json({ invite: { id, email, createdAt: new Date().toISOString() } }, 201);
 }
 
@@ -135,6 +136,7 @@ export async function acceptInvite({ env, actorId, params }: RouteContext) {
     env.DB.prepare('DELETE FROM workspace_invites WHERE id = ?').bind(invite.id),
   ]);
   await notify(env, [invite.owner_id], 'invite_accepted', { name: await nameOf(env, actorId) });
+  await recordActivity(env, invite.owner_id, actorId, 'member_joined', {});
   return json({ ok: true });
 }
 
@@ -154,7 +156,7 @@ export async function declineInvite({ env, actorId, params }: RouteContext) {
  * DELETE /api/workspace/members/:userId: remove a member. They go back to an empty data set of
  * their own; their old data stays with the owner.
  */
-export async function removeMember({ env, userId, role, params }: RouteContext) {
+export async function removeMember({ env, userId, actorId, role, params }: RouteContext) {
   requireOwner(role);
   if (params.userId === userId) throw new HttpError(400, 'Pemilik tidak bisa mengeluarkan diri sendiri');
   const result = await env.DB.prepare("UPDATE workspace_members SET owner_id = user_id, role = 'owner' WHERE user_id = ? AND owner_id = ? AND role = 'member'")
@@ -162,6 +164,7 @@ export async function removeMember({ env, userId, role, params }: RouteContext) 
     .run();
   if (result.meta.changes === 0) throw new HttpError(404, 'Anggota tidak ditemukan');
   await notify(env, [params.userId], 'member_removed', { owner: await nameOf(env, userId) });
+  await recordActivity(env, userId, actorId, 'member_removed', { name: await nameOf(env, params.userId) });
   return json({ ok: true });
 }
 
@@ -172,6 +175,9 @@ export async function leaveWorkspace({ env, actorId, role }: RouteContext) {
     .bind(actorId)
     .first<{ owner_id: string }>();
   await env.DB.prepare("UPDATE workspace_members SET owner_id = user_id, role = 'owner' WHERE user_id = ? AND role = 'member'").bind(actorId).run();
-  if (membership) await notify(env, [membership.owner_id], 'member_left', { name: await nameOf(env, actorId) });
+  if (membership) {
+    await notify(env, [membership.owner_id], 'member_left', { name: await nameOf(env, actorId) });
+    await recordActivity(env, membership.owner_id, actorId, 'member_left', {});
+  }
   return json({ ok: true });
 }
