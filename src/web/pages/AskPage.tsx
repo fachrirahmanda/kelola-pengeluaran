@@ -1,36 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { api, ApiRequestError, postStream } from '../api';
+import { PART_BREAK, useAsk } from '../ask';
 import { Icon } from '../components/Icon';
 import { formatDate, localeOf } from '../format';
 import { usePrefs } from '../prefs';
 import type { MessageKey } from '../i18n';
 
 // Ask AI: questions about your own spending. The answer comes from a summary of your data on the
-// server; the model never sees another person's data. Questions and answers are kept as a history.
-
-interface Exchange {
-  id: string;
-  question: string;
-  /** Empty while the answer is on its way. */
-  answer: string;
-  /** UTC from the server, "YYYY-MM-DD HH:MM:SS". Empty while the answer is on its way. */
-  createdAt: string;
-}
+// server; the model never sees another person's data. Questions and answers are kept as a history. The
+// conversation itself lives in ask.tsx, so an answer keeps coming while the person is on another page.
 
 const EXAMPLES: MessageKey[] = ['ask.example1', 'ask.example2', 'ask.example3', 'ask.example4'];
 
-/** Between the answers to the questions in one message (PART_BREAK in routes/ask.ts). Each shows as its own reply. */
-const PART_BREAK = '\u001e';
 /** The composer grows with its text up to this height, then scrolls. */
 const COMPOSER_MAX_HEIGHT = 160;
-
-/** What the server sends while it answers (see routes/ask.ts). Other types are ignored. */
-type AskEvent =
-  | { type: 'thinking' }
-  | { type: 'parts'; total: number }
-  | { type: 'part'; index: number; total: number; answer: string }
-  | { type: 'done'; answer: string; id: string; createdAt: string }
-  | { type: 'error'; message: string };
 
 /** The server's UTC "YYYY-MM-DD HH:MM:SS" as a Date. */
 function dateOf(createdAt: string) {
@@ -44,18 +26,12 @@ function dayOf(createdAt: string) {
 }
 
 export function AskPage() {
-  const { t, lang, currency } = usePrefs();
-  const [question, setQuestion] = useState('');
-  const [history, setHistory] = useState<Exchange[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  // While an answer is on its way: whether the model is thinking, and seconds since the question was sent.
-  const [thinking, setThinking] = useState(false);
+  const { t, lang } = usePrefs();
+  const { history, loaded, busy, error, thinking, progress, startedAt, draft: question, setDraft: setQuestion, load, ask, clearHistory } = useAsk();
   const [seconds, setSeconds] = useState(0);
-  // For a message with several questions: how many there are, and how many are answered so far.
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(load, [load]);
 
   // While the composer is in use on a phone, the bottom bar is hidden (see .is-typing in styles.css): iOS lifts
   // it above the keyboard, where it covers the conversation.
@@ -72,70 +48,14 @@ export function AskPage() {
     input.style.height = `${Math.min(input.scrollHeight, COMPOSER_MAX_HEIGHT)}px`;
   }, [question]);
 
+  // Seconds since the question was sent, also after coming back from another page.
   useEffect(() => {
-    if (!busy) return;
-    setSeconds(0);
-    const started = Date.now();
-    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    if (startedAt === null) return;
+    const tick = () => setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
-  }, [busy]);
-
-  useEffect(() => {
-    api
-      .get<{ items: Exchange[] }>('/ask/history')
-      .then((data) => setHistory(data.items))
-      .catch(() => undefined)
-      .finally(() => setLoaded(true));
-  }, []);
-
-  async function ask(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed || busy) return;
-    setError('');
-    setBusy(true);
-    setThinking(false);
-    setProgress(null);
-    const pending: Exchange = { id: `pending-${Date.now()}`, question: trimmed, answer: '', createdAt: '' };
-    setHistory((list) => [...list, pending]);
-    setQuestion('');
-    const update = (change: (item: Exchange) => Exchange) => setHistory((list) => list.map((item) => (item.id === pending.id ? change(item) : item)));
-    try {
-      let finished = false;
-      const answered: string[] = [];
-      await postStream<AskEvent>('/ask', { question: trimmed, currency }, (event) => {
-        if (event.type === 'thinking') setThinking(true);
-        else if (event.type === 'parts') setProgress({ done: 0, total: event.total });
-        else if (event.type === 'part') {
-          // Each question's answer shows as soon as it is ready; the next one is still being worked on.
-          answered[event.index] = event.answer;
-          setProgress({ done: event.index + 1, total: event.total });
-          setThinking(false);
-          update((item) => ({ ...item, answer: answered.join(PART_BREAK) }));
-        } else if (event.type === 'done') {
-          finished = true;
-          update(() => ({ id: event.id, question: trimmed, answer: event.answer, createdAt: event.createdAt }));
-        } else if (event.type === 'error') throw new ApiRequestError(event.message, 502);
-      });
-      if (!finished) throw new Error('incomplete');
-    } catch (requestError) {
-      setHistory((list) => list.filter((item) => item.id !== pending.id));
-      setQuestion(trimmed);
-      // Anything but a message from the server means the connection closed before the answer was complete.
-      setError(requestError instanceof ApiRequestError ? requestError.message : t('ask.cutOff'));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function clearHistory() {
-    if (!window.confirm(t('ask.clearConfirm'))) return;
-    try {
-      await api.delete('/ask/history');
-      setHistory([]);
-    } catch (requestError) {
-      setError(requestError instanceof ApiRequestError ? requestError.message : t('ask.failed'));
-    }
-  }
+  }, [startedAt]);
 
   function submit(event: FormEvent) {
     event.preventDefault();

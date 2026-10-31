@@ -2018,6 +2018,27 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
+/* While Ask AI is answering, a pulsing dot on its button in the top bar, seen from any page. */
+.ask-link {
+  position: relative;
+}
+
+/* A notification in the bell's list opens the page it is about. */
+.notif-link {
+  cursor: pointer;
+}
+
+.ask-busy-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: ask-pulse 1.2s ease-in-out infinite;
+}
+
 /* While an answer is on its way: a pulsing dot with the status and seconds. */
 .ask-status {
   display: flex;
@@ -2047,7 +2068,8 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ask-pulse {
+  .ask-pulse,
+  .ask-busy-dot {
     animation: none;
   }
 }
