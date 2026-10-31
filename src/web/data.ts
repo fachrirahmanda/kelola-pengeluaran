@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from './api';
-import type { Category, Invitation, OpenBill, PaidBill, PaymentSource, RecurringItem, RecurringPayment, Workspace } from '../shared/types';
+import type { Category, Invitation, OpenBill, PaidBill, PaymentSource, SourceHolder, RecurringItem, RecurringPayment, Workspace } from '../shared/types';
 
 /** Loads the user's categories. Call `reload` after they change. */
 export function useCategories() {
@@ -17,13 +17,21 @@ export function useCategories() {
 /** Loads the user's sources of funds (savings, credit cards, paylater). Call `reload` after they change. */
 export function useSources() {
   const [sources, setSources] = useState<PaymentSource[] | null>(null);
+  const [holders, setHolders] = useState<SourceHolder[]>([]);
 
-  const reload = useCallback(() => api.get<{ sources: PaymentSource[] }>('/sources').then((data) => setSources(data.sources)), []);
+  const reload = useCallback(
+    () =>
+      api.get<{ sources: PaymentSource[]; holders?: SourceHolder[] }>('/sources').then((data) => {
+        setSources(data.sources);
+        setHolders(data.holders ?? []);
+      }),
+    [],
+  );
   useEffect(() => {
     reload().catch(() => setSources([]));
   }, [reload]);
 
-  return { sources, reload };
+  return { sources, holders, reload };
 }
 
 /** Loads open bills and the paid bill history. Call `reload` after a bill is paid. */

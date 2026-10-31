@@ -4,13 +4,15 @@ import { api, ApiRequestError } from '../api';
 import { budgetStatus, type BudgetLine, type BudgetMonth } from '../../shared/budget';
 import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
-import { METHODS, isBilledKind, type Category, type Method, type PaymentSource, type Transaction, type TransactionInput } from '../../shared/types';
+import { METHODS, isBilledKind, type Category, type Method, type PaymentSource, type SourceHolder, type Transaction, type TransactionInput } from '../../shared/types';
 import { DatePicker } from './DatePicker';
 import { Icon } from './Icon';
 
 interface TransactionFormProps {
   categories: Category[];
   sources: PaymentSource[];
+  /** People sources can belong to; a source's owner shows next to its name when there is more than one. */
+  holders?: SourceHolder[];
   /** Set when editing. Without it the form creates a new transaction. */
   initial?: Transaction;
   submitLabel: string;
@@ -32,7 +34,7 @@ const METHOD_KEYS = {
   credit: 'method.credit',
 } as const;
 
-export function TransactionForm({ categories, sources, initial, submitLabel, onSaved, onCancel }: TransactionFormProps) {
+export function TransactionForm({ categories, sources, holders = [], initial, submitLabel, onSaved, onCancel }: TransactionFormProps) {
   const { t, money, categoryName } = usePrefs();
   const [occurredOn, setOccurredOn] = useState(initial?.occurredOn ?? todayInWib());
   const [occurredTime, setOccurredTime] = useState(initial?.occurredTime ?? '');
@@ -54,6 +56,11 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
   }, []);
 
   // Credit needs a credit card or paylater. Other methods may use savings, or no source at all.
+  // "BCA · Rina": whose account it is, when the data is shared by more than one person.
+  const sourceLabel = (source: PaymentSource) => {
+    const holder = holders.length > 1 ? holders.find((person) => person.userId === source.holderId) : undefined;
+    return holder ? `${source.name} · ${(holder.name || holder.email).split(/[\s@]/)[0]}` : source.name;
+  };
   const billedSources = sources.filter((source) => isBilledKind(source.kind));
   const savingsSources = sources.filter((source) => source.kind === 'savings');
   const selectedCategoryId = categoryId || categories[0]?.id || '';
@@ -163,7 +170,7 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
                   className="pill"
                   onClick={() => setSourceId(source.id)}
                 >
-                  {source.name}
+                  {sourceLabel(source)}
                 </button>
               ))}
             </div>
@@ -187,7 +194,7 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
                   className="pill"
                   onClick={() => setSourceId(source.id)}
                 >
-                  {source.name}
+                  {sourceLabel(source)}
                 </button>
               ))}
             </div>

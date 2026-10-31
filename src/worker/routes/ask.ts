@@ -121,7 +121,15 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
     )
       .bind(userId, start, RECENT_TRANSACTIONS)
       .all<{ occurred_on: string; posted_on: string | null; status: string; amount: number; method: string; note: string; category_id: string; source_name: string | null }>(),
-    env.DB.prepare('SELECT name, kind, closing_day, payment_day FROM payment_sources WHERE user_id = ? ORDER BY name').bind(userId).all<{ name: string; kind: string; closing_day: number | null; payment_day: number | null }>(),
+    env.DB.prepare(
+      `SELECT s.name, s.kind, s.closing_day, s.payment_day, COALESCE(NULLIF(u.name, ''), u.email) AS holder
+       FROM payment_sources s
+       LEFT JOIN workspace_members m ON m.user_id = s.holder_id AND m.owner_id = s.user_id
+       LEFT JOIN users u ON u.id = m.user_id
+       WHERE s.user_id = ? ORDER BY s.name`,
+    )
+      .bind(userId)
+      .all<{ name: string; kind: string; closing_day: number | null; payment_day: number | null; holder: string | null }>(),
     env.DB.prepare(
       `SELECT s.name AS source_name, SUM(t.amount) AS total, COUNT(*) AS count
        FROM transactions t JOIN payment_sources s ON s.id = t.source_id
@@ -183,7 +191,7 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
   lines.push('Payment sources:');
   for (const row of sources.results) {
     const billing = row.kind === 'savings' ? '' : `, closes on day ${row.closing_day}, pays on day ${row.payment_day}`;
-    lines.push(`- ${row.name} (${row.kind}${billing})`);
+    lines.push(`- ${row.name} (${row.kind}${billing}, belongs to ${row.holder ?? 'everyone (shared)'})`);
   }
   if (sources.results.length === 0) lines.push('- none');
   lines.push('');

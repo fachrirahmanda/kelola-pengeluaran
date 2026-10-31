@@ -34,7 +34,7 @@ export function DashboardPage() {
   const [budget, setBudget] = useState<{ total: number | null; spent: number } | null>(null);
   // Add expense lives on this page: the form is the side panel on desktop, and a drawer on phones.
   // The bottom bar's Add opens it with ?add=1.
-  const { sources } = useSources();
+  const { sources, holders } = useSources();
   const phone = usePhone();
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(params.get('add') === '1');
@@ -332,7 +332,7 @@ export function DashboardPage() {
 
       <SidePanel open={adding} onClose={closeAdd} title={t('catat.title')}>
         {categories && sources ? (
-          <TransactionForm categories={categories} sources={sources} submitLabel={t('form.save')} onSaved={handleSaved} />
+          <TransactionForm categories={categories} sources={sources} holders={holders} submitLabel={t('form.save')} onSaved={handleSaved} />
         ) : (
           <SkeletonForm />
         )}
