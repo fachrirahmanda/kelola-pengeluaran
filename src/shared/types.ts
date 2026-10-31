@@ -127,6 +127,8 @@ export interface PaidBill {
   total: number;
   count: number;
   paidOn: string;
+  /** The savings account the bill was paid from, if one was chosen. */
+  paidFromName: string | null;
 }
 
 /** An installment or recurring payment, with where it stands now. */
@@ -160,6 +162,35 @@ export interface RecurringPayment {
   dueMonth: string;
   amount: number;
   paidOn: string;
+  /** The savings account it was paid from by debit, if any. */
+  sourceName: string | null;
+}
+
+/** Money into a savings account: a one-off income, or one month of a salary. */
+export interface Income {
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  bank: string | null;
+  occurredOn: string;
+  amount: number;
+  note: string;
+  /** Recorded by a salary on its payday; it cannot be removed on its own. */
+  fromSalary: boolean;
+}
+
+/** Recurring income (gaji) into a savings account, recorded as an income on every pay date. */
+export interface Salary {
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  name: string;
+  amount: number;
+  /** Day of the month; a Saturday or Sunday pays on the Friday before. */
+  payDay: number;
+  /** The first month recorded, YYYY-MM. */
+  startMonth: string;
+  nextPayDate: string;
 }
 
 export const RECURRING_METHODS = ['cash', 'debit', 'transfer'] as const;
@@ -172,6 +203,17 @@ export interface WorkspaceMember {
   name: string;
   avatarUrl?: string | null;
   role: 'owner' | 'member';
+  /** When they last had Neraca open, UTC "YYYY-MM-DD HH:MM:SS"; null if not since this was recorded. */
+  lastSeenAt?: string | null;
+}
+
+/** Seen in the last minute: their open page checks in every 15 seconds. */
+export const ACTIVE_WITHIN_MS = 60_000;
+
+/** Whether someone last seen at `lastSeenAt` (UTC, from the server) has Neraca open now. */
+export function isActive(lastSeenAt: string | null | undefined, now = Date.now()) {
+  if (!lastSeenAt) return false;
+  return now - new Date(`${lastSeenAt.replace(' ', 'T')}Z`).getTime() < ACTIVE_WITHIN_MS;
 }
 
 export interface WorkspaceInvite {

@@ -11,6 +11,7 @@ interface MemberRow {
   avatar_url: string | null;
   avatar_v: number | null;
   role: 'owner' | 'member';
+  last_seen_at: string | null;
 }
 
 /** A person's photo: their own upload if they have one, else their Google picture (see users.ts). */
@@ -36,7 +37,7 @@ export async function getWorkspace({ env, actorId, userId, role }: RouteContext)
     role === 'owner'
       ? (
           await env.DB.prepare(
-            `SELECT u.id, u.email, u.name, u.avatar_url, u.avatar_v, m.role FROM workspace_members m JOIN users u ON u.id = m.user_id
+            `SELECT u.id, u.email, u.name, u.avatar_url, u.avatar_v, u.last_seen_at, m.role FROM workspace_members m JOIN users u ON u.id = m.user_id
              WHERE m.owner_id = ? ORDER BY m.role, u.email`,
           )
             .bind(userId)
@@ -68,7 +69,7 @@ export async function getWorkspace({ env, actorId, userId, role }: RouteContext)
       ownerEmail: owner?.email ?? '',
       ownerAvatarUrl: owner ? photoOf(owner.id, owner.avatar_url, owner.avatar_v) : null,
       role,
-      members: members.map((row) => ({ userId: row.id, email: row.email, name: row.name, avatarUrl: photoOf(row.id, row.avatar_url, row.avatar_v), role: row.role })),
+      members: members.map((row) => ({ userId: row.id, email: row.email, name: row.name, avatarUrl: photoOf(row.id, row.avatar_url, row.avatar_v), role: row.role, lastSeenAt: row.last_seen_at })),
       invites,
     },
     invitations: incoming.map((row) => ({ id: row.id, ownerName: row.owner_name, ownerEmail: row.owner_email, createdAt: row.created_at })),

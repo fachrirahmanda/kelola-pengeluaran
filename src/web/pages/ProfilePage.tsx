@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { useAuth } from '../auth';
+import { Dialog } from '../components/Dialog';
 import { Dropdown } from '../components/Dropdown';
 import { CURRENCY_FLAGS, Flag, LANGUAGE_FLAGS } from '../components/Flag';
 import { Icon } from '../components/Icon';
@@ -36,6 +38,92 @@ async function squarePhoto(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('photo'))), 'image/webp', 0.85);
   });
+}
+
+const RESET_WORD = 'RESET';
+
+/**
+ * Reset data, for the owner of the data set: empties everything recorded so they can start again. It asks for
+ * the word RESET first, and can put the categories back to the defaults or keep them.
+ */
+function ResetSection() {
+  const { t } = usePrefs();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [word, setWord] = useState('');
+  const [keepCategories, setKeepCategories] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  function close() {
+    setOpen(false);
+    setWord('');
+    setError('');
+  }
+
+  async function reset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await api.post('/profile/reset', { confirm: word.trim(), keepCategories });
+      close();
+      window.DS?.toast(t('reset.done'), { variant: 'success' });
+      navigate('/dashboard');
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('common.error.network'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card storage-card reset-card">
+      <div>
+        <h3 className="m-0">{t('reset.title')}</h3>
+        <p className="hint m-0">{t('reset.hint')}</p>
+      </div>
+      <div>
+        <button type="button" className="btn btn-danger-soft" onClick={() => setOpen(true)}>
+          <Icon name="trash" size={16} />
+          {t('reset.button')}
+        </button>
+      </div>
+
+      <Dialog open={open} onClose={close} title={t('reset.confirmTitle')} size="sm">
+        <form className="stack-lg" onSubmit={(event) => void reset(event)} noValidate>
+          <p className="m-0">{t('reset.confirmText')}</p>
+          <ul className="reset-list">
+            <li>{t('reset.listData')}</li>
+            <li>{t('reset.listSources')}</li>
+            <li>{t('reset.listOther')}</li>
+          </ul>
+          <p className="hint m-0">{t('reset.keeps')}</p>
+          <label className="check">
+            <input type="checkbox" checked={keepCategories} onChange={(event) => setKeepCategories(event.target.checked)} />
+            {t('reset.keepCategories')}
+          </label>
+          <label className="tx-field">
+            <span className="tx-field-label">{t('reset.typeWord', { word: RESET_WORD })}</span>
+            <input className="input" value={word} onChange={(event) => setWord(event.target.value)} autoComplete="off" autoCapitalize="characters" placeholder={RESET_WORD} />
+          </label>
+          {error && (
+            <p className="text-danger m-0" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={close}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn btn-danger" disabled={busy || word.trim() !== RESET_WORD} aria-busy={busy}>
+              {busy ? t('reset.working') : t('reset.confirm')}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </section>
+  );
 }
 
 export function ProfilePage() {
@@ -125,22 +213,21 @@ export function ProfilePage() {
       </div>
 
       {user && (
-        <section className="card storage-card">
-          <div className="storage-head">
-            <span className="avatar avatar-lg" aria-hidden="true">
-              {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : initialsOf(user.name, user.email)}
-            </span>
-            <div className="grow">
-              <h2 className="m-0">{user.name || user.email}</h2>
-              <p className="text-muted m-0">{user.email}</p>
-            </div>
-            <span className="badge">{user.isAdmin ? t('profile.admin') : role}</span>
-          </div>
-
-          <div className="cluster">
-            <label className="btn btn-sm">
-              <Icon name="image" size={14} />
-              {t('profile.changePhoto')}
+        <section className="card storage-card profile-card">
+          <div className="profile-head">
+            {/* The photo is the button: a pencil on it, and "Change photo" over it on hover, say it can be changed. */}
+            <label className={`profile-avatar${busy ? ' is-busy' : ''}`} title={t('profile.changePhoto')}>
+              <span className="avatar profile-avatar-img" aria-hidden="true">
+                {user.avatarUrl ? <img src={user.avatarUrl} alt="" referrerPolicy="no-referrer" /> : initialsOf(user.name, user.email)}
+              </span>
+              <span className="profile-avatar-overlay" aria-hidden="true">
+                <Icon name="image" size={18} />
+                {busy ? t('form.saving') : t('profile.changePhotoShort')}
+              </span>
+              <span className="profile-avatar-edit" aria-hidden="true">
+                <Icon name="edit" size={13} />
+              </span>
+              <span className="visually-hidden">{t('profile.changePhoto')}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -153,21 +240,37 @@ export function ProfilePage() {
                 }}
               />
             </label>
-            {user.avatarUrl?.startsWith('/api/avatar/') && (
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => void removePhoto()} disabled={busy}>
-                {t('profile.removePhoto')}
-              </button>
-            )}
+            <div className="grow profile-who">
+              <h2 className="m-0 truncate">{user.name || user.email}</h2>
+              <p className="text-muted m-0 truncate">{user.email}</p>
+              {/* This page is open, so the account is active now; others see it in the workspace list too. */}
+              <span className="presence is-active">
+                <i aria-hidden="true" />
+                {t('presence.active')}
+              </span>
+            </div>
+            <span className="badge">{user.isAdmin ? t('profile.admin') : role}</span>
           </div>
-          <p className="hint m-0">{t('profile.photoHint')}</p>
 
-          <form className="stack" onSubmit={(event) => void saveName(event)}>
-            <label className="stack">
-              <span className="text-sm">{t('profile.name')}</span>
-              <input className="input" value={name ?? user.name} maxLength={60} onChange={(event) => setName(event.target.value)} required />
+          <p className="hint m-0 profile-photo-hint">
+            {t('profile.photoHint')}
+            {user.avatarUrl?.startsWith('/api/avatar/') && (
+              <>
+                {' · '}
+                <button type="button" className="link-btn" onClick={() => void removePhoto()} disabled={busy}>
+                  {t('profile.removePhoto')}
+                </button>
+              </>
+            )}
+          </p>
+
+          <form className="tx-field" onSubmit={(event) => void saveName(event)}>
+            <label className="tx-field-label" htmlFor="profile-name">
+              {t('profile.name')}
             </label>
-            <div className="cluster">
-              <button type="submit" className="btn btn-primary btn-sm" disabled={busy || (name ?? user.name).trim() === user.name || !(name ?? user.name).trim()}>
+            <div className="profile-name-row">
+              <input id="profile-name" className="input" value={name ?? user.name} maxLength={60} onChange={(event) => setName(event.target.value)} required />
+              <button type="submit" className="btn btn-primary" disabled={busy || (name ?? user.name).trim() === user.name || !(name ?? user.name).trim()}>
                 {t('profile.saveName')}
               </button>
             </div>
@@ -248,7 +351,10 @@ export function ProfilePage() {
         </div>
       </section>
 
-      <button type="button" className="btn btn-primary btn-block" onClick={() => void signOut()}>
+      {state?.workspace.role === 'owner' && <ResetSection />}
+
+      {/* A plain button: signing out is not the page's main action, so it does not look like Save. */}
+      <button type="button" className="btn btn-block" onClick={() => void signOut()}>
         <Icon name="logout" size={16} />
         {t('nav.signOut')}
       </button>

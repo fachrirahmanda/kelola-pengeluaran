@@ -7,12 +7,14 @@ import { authConfig, currentUser, devLogin, googleCallback, logout, startGoogle 
 import { createSource, deleteSource, listSources, updateSource } from './routes/sources';
 import { listBills, payBill } from './routes/bills';
 import { exportCsv, monthlyReport } from './routes/reports';
-import { askAi } from './routes/ask';
+import { askAi, askHistory, clearAskHistory } from './routes/ask';
 import { getAi, removeAi, saveAi, testAi } from './routes/aiSettings';
-import { listBudgets, saveBudget } from './routes/budgets';
+import { budgetHistory, listBudgets, saveBudget } from './routes/budgets';
 import { addLoan, listLoans, payLoan, removeLoan } from './routes/loans';
-import { addIncome } from './routes/incomes';
+import { addIncome, deleteIncome, listIncomes } from './routes/incomes';
+import { createSalary, deleteSalary, listSalaries, updateSalary } from './routes/salaries';
 import { getAvatar, getProfile, removeAvatar, saveAvatar, saveName } from './routes/profile';
+import { resetData } from './routes/reset';
 import { addAttachment, deleteAttachment, driveCallback, getAttachment, getDrive, listAttachments, removeDrive, startDrive } from './routes/drive';
 import { acceptInvite, declineInvite, getWorkspace, invite, leaveWorkspace, removeMember, revokeInvite } from './routes/workspace';
 import { catchUpRecurring, createRecurring, deleteRecurring, listRecurring, payRecurring, updateRecurring } from './routes/recurring';
@@ -63,21 +65,31 @@ const routes: [Method, string, boolean, Handler][] = [
   ['GET', '/reports', true, monthlyReport],
   ['GET', '/reports/export.csv', true, exportCsv],
   ['POST', '/ask', true, askAi],
+  ['GET', '/ask/history', true, askHistory],
+  ['DELETE', '/ask/history', true, clearAskHistory],
   ['GET', '/ai/settings', true, getAi],
   ['PUT', '/ai/settings', true, saveAi],
   ['DELETE', '/ai/settings', true, removeAi],
   ['POST', '/ai/test', true, testAi],
   ['GET', '/budgets', true, listBudgets],
+  ['GET', '/budgets/history', true, budgetHistory],
   ['PUT', '/budgets', true, saveBudget],
   ['GET', '/loans', true, listLoans],
   ['POST', '/loans', true, addLoan],
   ['DELETE', '/loans/:id', true, removeLoan],
   ['POST', '/loans/:id/payments', true, payLoan],
   ['POST', '/sources/:id/income', true, addIncome],
+  ['GET', '/incomes', true, listIncomes],
+  ['DELETE', '/incomes/:id', true, deleteIncome],
+  ['GET', '/salaries', true, listSalaries],
+  ['POST', '/salaries', true, createSalary],
+  ['PATCH', '/salaries/:id', true, updateSalary],
+  ['DELETE', '/salaries/:id', true, deleteSalary],
   ['GET', '/profile', true, getProfile],
   ['PUT', '/profile', true, saveName],
   ['PUT', '/profile/avatar', true, saveAvatar],
   ['DELETE', '/profile/avatar', true, removeAvatar],
+  ['POST', '/profile/reset', true, resetData],
   ['GET', '/avatar/:id', true, getAvatar],
   ['GET', '/drive', true, getDrive],
   ['GET', '/drive/connect', true, startDrive],
@@ -124,8 +136,41 @@ async function contextOf(c: { req: { raw: Request; param: () => Record<string, s
   };
 }
 
+/**
+ * GET /api/sync: the data set's change counter, which open pages poll to notice changes made elsewhere. The
+ * poll also marks the person as active (at most every 30 seconds, to keep writes down).
+ */
+async function syncVersion({ env, userId, actorId }: RouteContext) {
+  const [row] = await Promise.all([
+    env.DB.prepare('SELECT version FROM data_versions WHERE user_id = ?').bind(userId).first<{ version: number }>(),
+    env.DB.prepare("UPDATE users SET last_seen_at = datetime('now') WHERE id = ? AND (last_seen_at IS NULL OR last_seen_at < datetime('now', '-30 seconds'))")
+      .bind(actorId)
+      .run(),
+  ]);
+  return Response.json({ version: row?.version ?? 0 });
+}
+routes.push(['GET', '/sync', true, syncVersion]);
+
+/** Writes that are not the shared money data: reading notifications, asking the AI, signing in or out. */
+const UNCOUNTED = ['/notifications', '/ask', '/ai/', '/auth/'];
+
 for (const [method, path, auth, handler] of routes) {
-  app.on(method, path, async (c) => handler(await contextOf(c, auth)));
+  const counted = method !== 'GET' && auth && !UNCOUNTED.some((prefix) => path.startsWith(prefix));
+  app.on(method, path, async (c) => {
+    const ctx = await contextOf(c, auth);
+    const response = await handler(ctx);
+    if (!counted || !ctx.userId || !response.ok) return response;
+    // A change went through: count it, and tell the page that made it the new count, so that page does not
+    // reload for its own change.
+    const row = await c.env.DB.prepare(
+      'INSERT INTO data_versions (user_id, version) VALUES (?, 1) ON CONFLICT (user_id) DO UPDATE SET version = version + 1 RETURNING version',
+    )
+      .bind(ctx.userId)
+      .first<{ version: number }>();
+    const withVersion = new Response(response.body, response);
+    withVersion.headers.set('x-data-version', String(row?.version ?? 0));
+    return withVersion;
+  });
 }
 
 app.notFound((c) => c.json({ error: 'Tidak ditemukan' }, 404));

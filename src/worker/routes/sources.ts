@@ -2,6 +2,7 @@ import { SOURCE_KINDS, isBilledKind, type PaymentSource, type SourceKind } from 
 import { bankById } from '../../shared/banks';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { syncSalaries } from './salaries';
 
 const NAME_MAX = 40;
 
@@ -66,12 +67,50 @@ function parseSource(body: Record<string, unknown>, current?: Pick<PaymentSource
   return { name: name.trim(), kind: kind as SourceKind, closingDay, paymentDay, openingBalance: 0, creditLimit, bank };
 }
 
+/** What a savings account holds now: opening balance + income - spent from it - card bills paid from it. */
+export async function balanceOf(db: D1Database, sourceId: string) {
+  const row = await db
+    .prepare(
+      `SELECT s.opening_balance
+         + (SELECT COALESCE(SUM(i.amount), 0) FROM incomes i WHERE i.source_id = s.id)
+         - (SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.source_id = s.id AND t.status = 'posted' AND t.method <> 'credit')
+         - (SELECT COALESCE(SUM(b.total), 0) FROM card_bills b WHERE b.paid_from_id = s.id) AS balance
+       FROM payment_sources s WHERE s.id = ?`,
+    )
+    .bind(sourceId)
+    .first<{ balance: number }>();
+  return row?.balance ?? 0;
+}
+
+/**
+ * The savings account a debit payment comes from (installment, card bill, loan repayment). Only savings
+ * can pay by debit: a credit card or paylater cannot pay another bill. With an amount, the account must hold
+ * at least that much; a payment never takes it below zero. Returns its id and name.
+ */
+export async function debitSourceOf(db: D1Database, userId: string, sourceId: unknown, amount?: number) {
+  if (typeof sourceId !== 'string' || !sourceId) throw new HttpError(400, 'Pilih rekening untuk bayar debit');
+  const source = await db.prepare('SELECT id, name, kind FROM payment_sources WHERE id = ? AND user_id = ?').bind(sourceId, userId).first<{ id: string; name: string; kind: SourceKind }>();
+  if (!source) throw new HttpError(404, 'Rekening tidak ditemukan');
+  if (source.kind !== 'savings') throw new HttpError(400, 'Bayar debit hanya bisa dari rekening tabungan');
+  if (amount !== undefined) {
+    const balance = await balanceOf(db, source.id);
+    if (balance < amount) {
+      const rupiah = (value: number) => `Rp${Math.max(0, value).toLocaleString('id-ID')}`;
+      throw new HttpError(400, `Saldo ${source.name} tidak cukup: tersisa ${rupiah(balance)}, perlu ${rupiah(amount)}.`);
+    }
+  }
+  return { id: source.id, name: source.name };
+}
+
 /** GET /api/sources */
 export async function listSources({ env, userId }: RouteContext) {
+  // Salaries whose payday has come are recorded first, so the balances include them.
+  await syncSalaries(env, userId);
   const { results } = await env.DB.prepare(
     `SELECT s.id, s.name, s.kind, s.closing_day, s.payment_day, s.bank, s.opening_balance, s.credit_limit,
        (SELECT COALESCE(SUM(i.amount), 0) FROM incomes i WHERE i.source_id = s.id) AS income,
-       (SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.source_id = s.id AND t.status = 'posted' AND t.method <> 'credit') AS spent,
+       (SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.source_id = s.id AND t.status = 'posted' AND t.method <> 'credit')
+         + (SELECT COALESCE(SUM(b.total), 0) FROM card_bills b WHERE b.paid_from_id = s.id) AS spent,
        (SELECT COALESCE(SUM(t.amount), 0) FROM transactions t WHERE t.source_id = s.id AND t.status = 'unpaid') AS owed
      FROM payment_sources s WHERE s.user_id = ? ORDER BY s.rowid`,
   )
@@ -114,6 +153,10 @@ export async function deleteSource({ env, userId, params }: RouteContext) {
   if (usage && usage.total > 0) {
     throw new HttpError(409, `Sumber dana dipakai ${usage.total} transaksi. Hapus atau ubah transaksinya dulu.`);
   }
+  const bills = await env.DB.prepare('SELECT COUNT(*) AS total FROM card_bills WHERE (source_id = ? OR paid_from_id = ?) AND user_id = ?')
+    .bind(params.id, params.id, userId)
+    .first<{ total: number }>();
+  if (bills && bills.total > 0) throw new HttpError(409, `Sumber dana dipakai ${bills.total} tagihan yang sudah lunas, jadi tidak bisa dihapus.`);
 
   const result = await env.DB.prepare('DELETE FROM payment_sources WHERE id = ? AND user_id = ?').bind(params.id, userId).run();
   if (result.meta.changes === 0) throw new HttpError(404, 'Sumber dana tidak ditemukan');

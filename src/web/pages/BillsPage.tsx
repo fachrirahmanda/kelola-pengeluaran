@@ -6,6 +6,7 @@ import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 import { SOURCE_KIND_LABELS, type OpenBill, type PaidBill, type SourceKind } from '../../shared/types';
 import { DatePicker } from '../components/DatePicker';
+import { DebitSourceField } from '../components/DebitSourceField';
 
 /** "2026-10" -> "October 2026" (or "Oktober 2026"). */
 function periodLabel(period: string, lang: string): string {
@@ -83,6 +84,7 @@ export function BillsPage() {
                   <span className="source-name">{paid.sourceName}</span>
                   <span className="source-meta">
                     {periodLabel(paid.period, lang)} · {t('bills.count', { count: paid.count })} · {t('bills.paidLine', { date: date(paid.paidOn) })}
+                    {paid.paidFromName && ` · ${t('pay.fromLine', { name: paid.paidFromName })}`}
                   </span>
                 </div>
                 <span className="amount">{money(paid.total)}</span>
@@ -100,6 +102,7 @@ function OpenBillCard({ bill, onPaid, onError }: { bill: OpenBill; onPaid: () =>
   const { t, lang, money, date } = usePrefs();
   const [paying, setPaying] = useState(false);
   const [paidOn, setPaidOn] = useState(todayInWib());
+  const [paidFromId, setPaidFromId] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handlePay(event: FormEvent<HTMLFormElement>) {
@@ -107,7 +110,7 @@ function OpenBillCard({ bill, onPaid, onError }: { bill: OpenBill; onPaid: () =>
     setSaving(true);
     onError('');
     try {
-      await api.post('/bills/pay', { sourceId: bill.sourceId, period: bill.period, paidOn });
+      await api.post('/bills/pay', { sourceId: bill.sourceId, period: bill.period, paidOn, paidFromId: paidFromId || null });
       setPaying(false);
       onPaid();
     } catch (requestError) {
@@ -149,6 +152,7 @@ function OpenBillCard({ bill, onPaid, onError }: { bill: OpenBill; onPaid: () =>
             <span className="tx-field-label">{t('bills.paidOn')}</span>
             <DatePicker value={paidOn} onChange={(v) => setPaidOn(v ?? todayInWib())} ariaLabel={t('bills.paidOn')} />
           </label>
+          <DebitSourceField value={paidFromId} onChange={setPaidFromId} optional />
           <div className="form-actions">
             <button type="button" className="btn" onClick={() => setPaying(false)}>
               {t('common.cancel')}

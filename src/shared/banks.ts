@@ -24,6 +24,7 @@ export const BANKS: Bank[] = [
   { id: 'ocbc', name: 'OCBC NISP', short: 'OCB', color: '#E31837', textColor: '#FFFFFF' },
   { id: 'panin', name: 'Panin', short: 'PAN', color: '#0B3C7D', textColor: '#FFFFFF' },
   { id: 'mega', name: 'Bank Mega', short: 'MEG', color: '#1E4D9B', textColor: '#FFFFFF' },
+  { id: 'jenius', name: 'Jenius', short: 'JNS', color: '#00A6E2', textColor: '#FFFFFF' },
   { id: 'btpn', name: 'Jago', short: 'JGO', color: '#FFD500', textColor: '#1A1A1A' },
   { id: 'seabank', name: 'SeaBank', short: 'SEA', color: '#00B7A5', textColor: '#FFFFFF' },
   { id: 'blu', name: 'blu', short: 'blu', color: '#2D9CDB', textColor: '#FFFFFF' },

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Maybank">
+  <defs>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".12"/>
+    </linearGradient>
+    <clipPath id="tile"><circle cx="32" cy="32" r="32"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="#FFC72C"/>
+    <rect width="64" height="64" fill="url(#shade)"/>
+    <circle cx="58" cy="4" r="24" fill="#fff" fill-opacity=".09"/>
+  </g>
+  <text x="32" y="39.56" text-anchor="middle" font-family="Inter, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="800" font-size="21" letter-spacing="-.02em" fill="#1A1A1A">MBK</text>
+</svg>

@@ -3,7 +3,10 @@ import { api, ApiRequestError } from '../api';
 import { DatePicker } from '../components/DatePicker';
 import { Dropdown } from '../components/Dropdown';
 import { SkeletonRows } from '../components/Skeleton';
-import { useCategories, useSources } from '../data';
+import { DebitSourceField } from '../components/DebitSourceField';
+import { Icon } from '../components/Icon';
+import { SidePanel, usePhone } from '../components/SidePanel';
+import { useCategories } from '../data';
 import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 
@@ -15,6 +18,8 @@ interface LoanPayment {
   amount: number;
   paidOn: string;
   transactionId: string;
+  /** The savings account it was debited from, if any. */
+  sourceName: string | null;
 }
 
 interface Loan {
@@ -34,12 +39,9 @@ export function LoansPage() {
   const { t } = usePrefs();
   const [loans, setLoans] = useState<Loan[] | null>(null);
   const [error, setError] = useState('');
-
-  // New loan form
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [receivedOn, setReceivedOn] = useState(todayInWib());
-  const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState(false);
+  // On desktop the add panel is always shown beside the list, so the button only exists on phones.
+  const phone = usePhone();
 
   function load() {
     api
@@ -50,33 +52,6 @@ export function LoansPage() {
 
   useEffect(load, []);
 
-  async function addLoan(event: FormEvent) {
-    event.preventDefault();
-    setError('');
-    setSaving(true);
-    try {
-      await api.post('/loans', { name: name.trim(), principal: toAmount(amount), receivedOn });
-      setName('');
-      setAmount('');
-      setReceivedOn(todayInWib());
-      load();
-    } catch (requestError) {
-      setError(requestError instanceof ApiRequestError ? requestError.message : t('loans.error'));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loans === null) {
-    return error ? (
-      <p className="text-danger" role="alert">
-        {error}
-      </p>
-    ) : (
-      <SkeletonRows count={4} />
-    );
-  }
-
   return (
     <>
       <div className="page-header">
@@ -84,6 +59,12 @@ export function LoansPage() {
           <h2>{t('loans.title')}</h2>
           <p className="hint">{t('loans.subtitle')}</p>
         </div>
+        {phone && (
+          <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
+            <Icon name="plus" size={16} />
+            {t('loans.add')}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -92,36 +73,91 @@ export function LoansPage() {
         </p>
       )}
 
-      <section className="card storage-card">
-        <h3 className="m-0">{t('loans.newTitle')}</h3>
-        <form className="stack" onSubmit={(event) => void addLoan(event)}>
-          <label className="stack">
-            <span className="text-sm">{t('loans.name')}</span>
-            <input className="input" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} required />
-          </label>
-          <label className="stack">
-            <span className="text-sm">{t('loans.amount')}</span>
-            <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required />
-          </label>
+      <section className="settings-section" aria-labelledby="loans-list">
+        <h3 id="loans-list" className="section-heading">
+          {t('loans.list')}
+        </h3>
+        <p className="hint">{t('loans.listHint')}</p>
+
+        {loans === null ? (
+          <div className="card">
+            <SkeletonRows count={2} />
+          </div>
+        ) : loans.length === 0 ? (
+          <div className="card">
+            <div className="empty">
+              <p>{t('loans.empty')}</p>
+            </div>
+          </div>
+        ) : (
           <div className="stack">
-            <span className="text-sm">{t('loans.received')}</span>
-            <DatePicker value={receivedOn} onChange={(value) => setReceivedOn(value ?? todayInWib())} ariaLabel={t('loans.received')} />
+            {loans.map((loan) => (
+              <LoanCard key={loan.id} loan={loan} onChanged={load} />
+            ))}
           </div>
-          <div className="cluster">
-            <button type="submit" className="btn btn-primary" disabled={saving || !name.trim() || !toAmount(amount)} aria-busy={saving}>
-              {t('loans.add')}
-            </button>
-          </div>
-        </form>
+        )}
       </section>
 
-      {loans.length === 0 ? (
-        <p className="hint">{t('loans.empty')}</p>
-      ) : (
-        loans.map((loan) => <LoanCard key={loan.id} loan={loan} onChanged={load} />)
-      )}
-
+      <SidePanel open={adding} onClose={() => setAdding(false)} title={t('loans.newTitle')}>
+        <AddLoanForm
+          onAdded={() => {
+            setAdding(false);
+            load();
+          }}
+          onError={setError}
+        />
+      </SidePanel>
     </>
+  );
+}
+
+/** A new loan: its name, how much was received, and when. */
+function AddLoanForm({ onAdded, onError }: { onAdded: () => void; onError: (message: string) => void }) {
+  const { t, money } = usePrefs();
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [receivedOn, setReceivedOn] = useState(todayInWib());
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    onError('');
+    setSaving(true);
+    try {
+      await api.post('/loans', { name: name.trim(), principal: toAmount(amount), receivedOn });
+      window.DS?.toast(t('loans.added', { name: name.trim() }), { variant: 'success' });
+      setName('');
+      setAmount('');
+      setReceivedOn(todayInWib());
+      onAdded();
+    } catch (requestError) {
+      onError(requestError instanceof ApiRequestError ? requestError.message : t('loans.error'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="stack-lg" onSubmit={(event) => void submit(event)} noValidate>
+      <label className="tx-field">
+        <span className="tx-field-label">{t('loans.name')}</span>
+        <input className="input" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} required />
+      </label>
+      <label className="tx-field">
+        <span className="tx-field-label">{t('loans.amount')}</span>
+        <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required />
+        {toAmount(amount) > 0 && <span className="tx-hint">{money(toAmount(amount))}</span>}
+      </label>
+      <div className="tx-field">
+        <span className="tx-field-label">{t('loans.received')}</span>
+        <DatePicker value={receivedOn} onChange={(value) => setReceivedOn(value ?? todayInWib())} ariaLabel={t('loans.received')} />
+      </div>
+      <div className="form-actions">
+        <button type="submit" className="btn btn-primary" disabled={saving || !name.trim() || !toAmount(amount)} aria-busy={saving}>
+          {saving ? t('form.saving') : t('loans.add')}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -129,7 +165,6 @@ export function LoansPage() {
 function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
   const { t, money, date, categoryName } = usePrefs();
   const { categories } = useCategories();
-  const { sources } = useSources();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [paidOn, setPaidOn] = useState(todayInWib());
@@ -145,7 +180,7 @@ function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
     setError('');
     setBusy(true);
     try {
-      await api.post(`/loans/${loan.id}/payments`, { amount: toAmount(amount), paidOn, categoryId, method, sourceId: sourceId || null });
+      await api.post(`/loans/${loan.id}/payments`, { amount: toAmount(amount), paidOn, categoryId, method, sourceId: method === 'debit' ? sourceId : null });
       setAmount('');
       setOpen(false);
       onChanged();
@@ -167,7 +202,6 @@ function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
   }
 
   const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: categoryName(category.name) }));
-  const sourceOptions = [{ value: '', label: t('loans.sourceNone') }, ...(sources ?? []).map((source) => ({ value: source.id, label: source.name }))];
 
   return (
     <section className="card storage-card">
@@ -226,13 +260,10 @@ function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
             <span className="text-sm">{t('loans.payMethod')}</span>
             <Dropdown value={method} options={METHOD_KEYS.map((key) => ({ value: key, label: t(`method.${key}`) }))} onChange={(value) => setMethod(value as (typeof METHOD_KEYS)[number])} ariaLabel={t('loans.payMethod')} />
           </div>
-          <div className="stack">
-            <span className="text-sm">{t('loans.paySource')}</span>
-            <Dropdown value={sourceId} options={sourceOptions} onChange={setSourceId} ariaLabel={t('loans.paySource')} />
-          </div>
+          {method === 'debit' && <DebitSourceField value={sourceId} onChange={setSourceId} />}
           {error && <p className="text-danger">{error}</p>}
           <div className="cluster">
-            <button type="submit" className="btn btn-primary" disabled={busy || !toAmount(amount) || !categoryId} aria-busy={busy}>
+            <button type="submit" className="btn btn-primary" disabled={busy || !toAmount(amount) || !categoryId || (method === 'debit' && !sourceId)} aria-busy={busy}>
               {t('loans.paySave')}
             </button>
           </div>
@@ -246,7 +277,10 @@ function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
         ) : (
           loan.payments.map((payment) => (
             <div key={payment.id} className="list-row">
-              <span className="source-meta">{date(payment.paidOn)}</span>
+              <span className="source-meta">
+                {date(payment.paidOn)}
+                {payment.sourceName && ` · ${t('pay.fromLine', { name: payment.sourceName })}`}
+              </span>
               <span className="amount">{money(payment.amount)}</span>
             </div>
           ))

@@ -12,6 +12,7 @@ import { UserMenu } from './UserMenu';
 import { Dialog } from './Dialog';
 import { NotificationList, useNotifications } from './Notifications';
 import { SideSlotContext } from './SidePanel';
+import { useLiveRefresh } from '../liveRefresh';
 
 const ICON = {
   dashboard: <Icon name="home" size={18} />,
@@ -124,6 +125,8 @@ export function Layout() {
   const moreTabs = TABS.filter((tab) => !BOTTOM_PATHS.includes(tab.to));
 
   const [sideSlot, setSideSlot] = useState<HTMLElement | null>(null);
+  // Changes made elsewhere load the page's content again; a new deploy reloads the page (see liveRefresh.ts).
+  const refreshKey = useLiveRefresh();
   return (
     <div className={`ds-app${collapsed ? ' is-collapsed' : ''}`}>
       <aside className="ds-sidebar" aria-label={t('nav.menu')}>
@@ -132,9 +135,25 @@ export function Layout() {
             <img src="/favicon.svg" alt="" width="32" height="32" />
             <span className="ds-sidebar-text">Neraca</span>
           </NavLink>
-          <button type="button" className="icon-btn icon-btn-sm icon-btn-plain sidebar-collapse" onClick={toggleCollapsed} aria-label={collapsed ? t('nav.expand') : t('nav.collapse')} title={collapsed ? t('nav.expand') : t('nav.collapse')}>
-            <Icon name={collapsed ? 'sidebar-open' : 'sidebar-close'} size={16} />
-          </button>
+          <div className="sidebar-head-actions">
+            {/* Notifications on desktop; on phones the bell is in the top bar. */}
+            <button
+              type="button"
+              className="icon-btn icon-btn-sm icon-btn-plain notif-btn"
+              onClick={() => {
+                setNotices(true);
+                markRead();
+              }}
+              aria-label={t('nav.notifications')}
+              title={t('nav.notifications')}
+            >
+              <Icon name="bell" size={16} />
+              {invitations.length + unread > 0 && <span className="notif-count">{invitations.length + unread}</span>}
+            </button>
+            <button type="button" className="icon-btn icon-btn-sm icon-btn-plain sidebar-collapse" onClick={toggleCollapsed} aria-label={collapsed ? t('nav.expand') : t('nav.collapse')} title={collapsed ? t('nav.expand') : t('nav.collapse')}>
+              <Icon name={collapsed ? 'sidebar-open' : 'sidebar-close'} size={16} />
+            </button>
+          </div>
         </div>
 
         <nav className="ds-sidebar-scroll" aria-label={t('nav.menu')}>
@@ -212,7 +231,7 @@ export function Layout() {
           </div>
         )}
         <SideSlotContext value={sideSlot}>
-          <Outlet />
+          <Outlet key={refreshKey} />
         </SideSlotContext>
         </div>
         <div className="app-side" ref={setSideSlot} />

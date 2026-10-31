@@ -3,6 +3,7 @@ import { isBilledKind, type OpenBill, type PaidBill, type SourceKind } from '../
 import type { Env } from '../env';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { debitSourceOf } from './sources';
 
 const CHUNK = 50;
 const PAID_LIST_LIMIT = 100;
@@ -69,12 +70,12 @@ export async function listBills({ env, userId }: RouteContext) {
   const open = await openBillsOf(env, userId);
 
   const { results: paidRows } = await env.DB.prepare(
-    `SELECT b.id, b.source_id, s.name AS source_name, b.period, b.total, b.transaction_count, b.paid_on
-     FROM card_bills b JOIN payment_sources s ON s.id = b.source_id
+    `SELECT b.id, b.source_id, s.name AS source_name, b.period, b.total, b.transaction_count, b.paid_on, f.name AS paid_from_name
+     FROM card_bills b JOIN payment_sources s ON s.id = b.source_id LEFT JOIN payment_sources f ON f.id = b.paid_from_id
      WHERE b.user_id = ? ORDER BY b.paid_on DESC, b.period DESC LIMIT ${PAID_LIST_LIMIT}`,
   )
     .bind(userId)
-    .all<{ id: string; source_id: string; source_name: string; period: string; total: number; transaction_count: number; paid_on: string }>();
+    .all<{ id: string; source_id: string; source_name: string; period: string; total: number; transaction_count: number; paid_on: string; paid_from_name: string | null }>();
 
   const paid: PaidBill[] = paidRows.map((row) => ({
     id: row.id,
@@ -84,14 +85,16 @@ export async function listBills({ env, userId }: RouteContext) {
     total: row.total,
     count: row.transaction_count,
     paidOn: row.paid_on,
+    paidFromName: row.paid_from_name,
   }));
 
   return json({ open, paid });
 }
 
 /**
- * POST /api/bills/pay { sourceId, period, paidOn }: marks the open bill as paid. Its unpaid
- * transactions count as spending on the payment date, and the bill is kept as paid history.
+ * POST /api/bills/pay { sourceId, period, paidOn, paidFromId? }: marks the open bill as paid. Its unpaid
+ * transactions count as spending on the payment date, and the bill is kept as paid history. With
+ * paidFromId (a savings account), the bill's total comes off that account's balance.
  */
 export async function payBill({ request, env, userId }: RouteContext) {
   const body = await readJson(request);
@@ -115,10 +118,11 @@ export async function payBill({ request, env, userId }: RouteContext) {
   if (inBill.length === 0) throw new HttpError(400, 'Tidak ada tagihan yang belum lunas untuk periode ini');
 
   const total = inBill.reduce((sum, row) => sum + row.amount, 0);
+  const paidFrom = body.paidFromId ? await debitSourceOf(env.DB, userId, body.paidFromId, total) : null;
   const billId = crypto.randomUUID();
 
   const statements = [
-    env.DB.prepare('INSERT INTO card_bills (id, user_id, source_id, period, total, transaction_count, paid_on) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
+    env.DB.prepare('INSERT INTO card_bills (id, user_id, source_id, period, total, transaction_count, paid_on, paid_from_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(
       billId,
       userId,
       source.id,
@@ -126,6 +130,7 @@ export async function payBill({ request, env, userId }: RouteContext) {
       total,
       inBill.length,
       paidOn,
+      paidFrom?.id ?? null,
     ),
   ];
   for (let i = 0; i < inBill.length; i += CHUNK) {
@@ -154,6 +159,7 @@ export async function payBill({ request, env, userId }: RouteContext) {
     total,
     count: inBill.length,
     paidOn,
+    paidFromName: paidFrom?.name ?? null,
   };
   return json({ bill }, 201);
 }

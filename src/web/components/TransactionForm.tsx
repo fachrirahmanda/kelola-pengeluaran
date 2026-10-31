@@ -1,5 +1,7 @@
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { api, ApiRequestError } from '../api';
+import { budgetStatus, type BudgetLine, type BudgetMonth } from '../../shared/budget';
 import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 import { METHODS, isBilledKind, type Category, type Method, type PaymentSource, type Transaction, type TransactionInput } from '../../shared/types';
@@ -41,6 +43,15 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
   const [sourceId, setSourceId] = useState(initial?.sourceId ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // This month's budgets, to warn on a category that is near or over its budget.
+  const [budgets, setBudgets] = useState<Map<string, BudgetLine>>(new Map());
+
+  useEffect(() => {
+    api
+      .get<BudgetMonth>('/budgets')
+      .then((data) => setBudgets(new Map(data.categories.filter((row) => row.amount !== null).map((row) => [row.categoryId, row]))))
+      .catch(() => undefined);
+  }, []);
 
   // Credit needs a credit card or paylater. Other methods may use savings, or no source at all.
   const billedSources = sources.filter((source) => isBilledKind(source.kind));
@@ -74,6 +85,14 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
         ? await api.put<{ transaction: Transaction }>(`/transactions/${initial.id}`, body)
         : await api.post<{ transaction: Transaction }>('/transactions', body);
       onSaved(data.transaction);
+      if (!initial && data.transaction.status === 'posted' && data.transaction.postedOn?.slice(0, 7) === todayInWib().slice(0, 7)) {
+        // Count the new expense against its category's budget, so the warning stays right for the next entry.
+        setBudgets((current) => {
+          const line = current.get(data.transaction.categoryId);
+          if (!line) return current;
+          return new Map(current).set(line.categoryId, { ...line, spent: line.spent + data.transaction.amount });
+        });
+      }
       if (!initial) {
         // Keep date, method, category and source for the next entry; clear the rest.
         setAmount('');
@@ -178,24 +197,39 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
 
       <div className="tx-field">
         <span className="tx-field-label">{t('form.category')}</span>
+        {categories.length === 0 && (
+          <p className="tx-hint">
+            <Link to="/settings?tab=categories">{t('form.noCategories')}</Link>
+          </p>
+        )}
         <div className="category-grid" role="radiogroup" aria-label={t('form.category')}>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              role="radio"
-              aria-checked={selectedCategoryId === category.id}
-              className="category-option"
-              style={{ '--cat-color': category.color } as CSSProperties}
-              onClick={() => setCategoryId(category.id)}
-            >
-              <span className="cat-badge" aria-hidden="true">
-                {category.icon}
-              </span>
-              <span className="category-option-name">{categoryName(category.name)}</span>
-            </button>
-          ))}
+          {categories.map((category) => {
+            const line = budgets.get(category.id);
+            const status = line ? budgetStatus(line.spent, line.amount) : 'none';
+            return (
+              <button
+                key={category.id}
+                type="button"
+                role="radio"
+                aria-checked={selectedCategoryId === category.id}
+                className="category-option"
+                style={{ '--cat-color': category.color } as CSSProperties}
+                onClick={() => setCategoryId(category.id)}
+              >
+                <span className="cat-badge" aria-hidden="true">
+                  {category.icon}
+                </span>
+                <span className="category-option-name">{categoryName(category.name)}</span>
+                {(status === 'near' || status === 'over') && (
+                  <span className={`badge ${status === 'over' ? 'badge-danger' : 'badge-warning'} category-option-budget`}>
+                    {t(status === 'over' ? 'budgets.status.over' : 'budgets.status.near')}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
+        <BudgetHint line={budgets.get(selectedCategoryId)} name={categoryName(categories.find((category) => category.id === selectedCategoryId)?.name ?? '')} adding={initial ? 0 : amountNumber} />
       </div>
 
       <div className="tx-grid">
@@ -237,6 +271,27 @@ export function TransactionForm({ categories, sources, initial, submitLabel, onS
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Under the categories: the chosen category's budget this month. Over budget is red, near it amber, and an
+ * amount that would take it over is said before it is saved. Nothing when the category has no budget.
+ */
+function BudgetHint({ line, name, adding }: { line: BudgetLine | undefined; name: string; adding: number }) {
+  const { t, money } = usePrefs();
+  if (!line || line.amount === null) return null;
+  const status = budgetStatus(line.spent, line.amount);
+  if (status === 'over') {
+    return <p className="tx-hint text-danger">{t('form.budgetOver', { name, over: money(line.spent - line.amount) })}</p>;
+  }
+  if (adding > 0 && line.spent + adding > line.amount) {
+    return <p className="tx-hint text-danger">{t('form.budgetWillOver', { name })}</p>;
+  }
+  return (
+    <p className={`tx-hint${status === 'near' ? ' text-warning' : ''}`}>
+      {t('form.budgetLeft', { name, left: money(line.amount - line.spent), amount: money(line.amount) })}
+    </p>
   );
 }
 

@@ -11,6 +11,7 @@ import { usePrefs } from '../prefs';
 import { RECURRING_METHODS, type RecurringItem, type RecurringMethod, type RecurringPayment } from '../../shared/types';
 import type { MessageKey } from '../i18n';
 import { DatePicker } from '../components/DatePicker';
+import { DebitSourceField } from '../components/DebitSourceField';
 import { SidePanel, usePhone } from '../components/SidePanel';
 
 const METHOD_KEYS: Record<RecurringMethod, MessageKey> = {
@@ -107,7 +108,10 @@ export function RecurringPage() {
                 <div className="source-main">
                   <span className="source-name">{payment.name}</span>
                   <span className="source-meta">{t('rec.installmentNoEnd', { n: payment.installment })}</span>
-                  <span className="source-meta">{t('rec.paidLine', { date: date(payment.paidOn), month: monthLabel(payment.dueMonth, lang) })}</span>
+                  <span className="source-meta">
+                    {t('rec.paidLine', { date: date(payment.paidOn), month: monthLabel(payment.dueMonth, lang) })}
+                    {payment.sourceName && ` · ${t('pay.fromLine', { name: payment.sourceName })}`}
+                  </span>
                 </div>
                 <span className="amount">{money(payment.amount)}</span>
               </div>
@@ -281,6 +285,7 @@ function InstallmentCard({
   const [fillBusy, setFillBusy] = useState(false);
   const [paying, setPaying] = useState(false);
   const [method, setMethod] = useState<RecurringMethod>('debit');
+  const [sourceId, setSourceId] = useState('');
   const [paidOn, setPaidOn] = useState(todayInWib());
   const [paySaving, setPaySaving] = useState(false);
   const [name, setName] = useState(item.name);
@@ -322,7 +327,7 @@ function InstallmentCard({
     onError('');
     setPaySaving(true);
     try {
-      await api.post(`/recurring/${item.id}/pay`, { paidOn, method });
+      await api.post(`/recurring/${item.id}/pay`, { paidOn, method, sourceId: method === 'debit' ? sourceId : null });
       setPaying(false);
       window.DS?.toast(t('rec.paidToast'), { variant: 'success' });
       onChanged();
@@ -416,6 +421,7 @@ function InstallmentCard({
                 ))}
               </div>
             </div>
+            {method === 'debit' && <DebitSourceField value={sourceId} onChange={setSourceId} />}
             <label className="tx-field">
               <span className="tx-field-label">{t('rec.paidOn')}</span>
               <DatePicker value={paidOn} onChange={(v) => setPaidOn(v ?? todayInWib())} ariaLabel={t('rec.paidOn')} />
@@ -424,7 +430,7 @@ function InstallmentCard({
               <button type="button" className="btn" onClick={() => setPaying(false)}>
                 {t('common.cancel')}
               </button>
-              <button type="submit" className="btn btn-primary" disabled={paySaving}>
+              <button type="submit" className="btn btn-primary" disabled={paySaving || (method === 'debit' && !sourceId)}>
                 {paySaving ? t('form.saving') : t('rec.confirm')}
               </button>
             </div>

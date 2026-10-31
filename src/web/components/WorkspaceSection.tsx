@@ -2,9 +2,38 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiRequestError } from '../api';
 import { useWorkspace } from '../data';
 import { usePrefs } from '../prefs';
-import { formatDate } from '../format';
+import { formatDate, localeOf } from '../format';
+import { isActive } from '../../shared/types';
 import { Icon } from './Icon';
 import { SkeletonSettingsCard } from './Skeleton';
+
+/** "Active now" with a green dot, or when they were last active ("Active 5 minutes ago"). */
+function Presence({ lastSeenAt }: { lastSeenAt?: string | null }) {
+  const { t, lang } = usePrefs();
+  if (isActive(lastSeenAt)) {
+    return (
+      <span className="presence is-active">
+        <i aria-hidden="true" />
+        {t('presence.active')}
+      </span>
+    );
+  }
+  if (!lastSeenAt) return <span className="presence">{t('presence.never')}</span>;
+  const seconds = (Date.now() - new Date(`${lastSeenAt.replace(' ', 'T')}Z`).getTime()) / 1000;
+  const format = new Intl.RelativeTimeFormat(localeOf(lang), { numeric: 'auto' });
+  const ago =
+    seconds < 3600
+      ? format.format(-Math.max(1, Math.round(seconds / 60)), 'minute')
+      : seconds < 86_400
+        ? format.format(-Math.round(seconds / 3600), 'hour')
+        : format.format(-Math.round(seconds / 86_400), 'day');
+  return (
+    <span className="presence">
+      <i aria-hidden="true" />
+      {t('presence.lastSeen', { ago })}
+    </span>
+  );
+}
 
 // Settings → Workspace: whose data this is, who shares it, the invitations waiting on each side. People
 // show with their photo; actions are icon buttons with their names kept as tooltips.
@@ -151,6 +180,7 @@ export function WorkspaceSection() {
                 <div className="grow ws-row-text">
                   <strong className="truncate">{member.name || member.email}</strong>
                   <span className="text-sm text-muted truncate">{member.email}</span>
+                  <Presence lastSeenAt={member.lastSeenAt} />
                 </div>
                 {member.role === 'owner' ? (
                   <span className="badge badge-success">{t('ws.owner')}</span>
