@@ -31,7 +31,7 @@ function parseCategoryInput(body: Record<string, unknown>, current?: CategoryInp
 
 /** GET /api/categories */
 export async function listCategories({ env, userId }: RouteContext) {
-  const { results } = await env.DB.prepare('SELECT id, name, color, icon FROM categories WHERE user_id = ? ORDER BY rowid')
+  const { results } = await env.DB.prepare('SELECT id, name, color, icon FROM categories WHERE user_id = ? AND system = 0 ORDER BY rowid')
     .bind(userId)
     .all<CategoryRow>();
   return json({ categories: results.map(toCategory) });

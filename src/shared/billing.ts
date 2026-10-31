@@ -27,3 +27,31 @@ export function dueOn(period: string, closingDay: number, paymentDay: number): s
   const dueMonth = paymentDay > closingDay ? new Date(Date.UTC(year, month - 1, 1)) : new Date(Date.UTC(year, month, 1));
   return `${dueMonth.getUTCFullYear()}-${pad(dueMonth.getUTCMonth() + 1)}-${pad(paymentDay)}`;
 }
+
+const addDays = (iso: string, days: number) => {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+/** A month as YYYY-MM, moved by `months` (negative goes back). */
+export function shiftMonth(month: string, months: number): string {
+  const [year, value] = month.split('-').map(Number);
+  const next = new Date(Date.UTC(year, value - 1 + months, 1));
+  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}`;
+}
+
+/** The statement date (billing date) of a bill: two days after it closes, YYYY-MM-DD. */
+export function billingOn(period: string, closingDay: number): string {
+  return addDays(closesOn(period, closingDay), 2);
+}
+
+/** The first day a bill's purchases count from: the day after the previous bill closed, YYYY-MM-DD. */
+export function periodStartOf(period: string, closingDay: number): string {
+  return addDays(closesOn(shiftMonth(period, -1), closingDay), 1);
+}
+
+/** The date a bill is due when it is paid in `payMonth` (YYYY-MM), YYYY-MM-DD. */
+export function dueIn(payMonth: string, paymentDay: number): string {
+  return `${payMonth}-${pad(paymentDay)}`;
+}

@@ -52,6 +52,8 @@ export function notificationText(item: AppNotification, { t, money, lang }: Pref
       return t('notif.dataDeleted', { actor: String(d.actor), amount: money(Number(d.amount)) });
     case 'bill_due':
       return t('notif.billDue', { source: String(d.source), amount: money(Number(d.amount)), date: formatDate(String(d.dueOn), lang) });
+    case 'bill_reminder':
+      return t('notif.billReminder', { source: String(d.source), amount: money(Number(d.amount)), date: formatDate(String(d.dueOn), lang), days: Number(d.days) });
     case 'ask_answered':
       return t('notif.askAnswered', { question: String(d.question) });
     case 'ask_failed':
@@ -74,7 +76,9 @@ export function linkOf(item: AppNotification): string {
     case 'data_deleted':
       return '/transactions';
     case 'bill_due':
-      return '/bills';
+    case 'bill_reminder':
+      // Opens that card's bills, so the person can see what the bill holds and choose its payment month.
+      return item.data.sourceId ? `/bills?source=${encodeURIComponent(String(item.data.sourceId))}` : '/bills';
     case 'ask_answered':
       // Opens at the answer itself; older notifications without its id open at the latest one.
       return `/ask?answer=${item.data.id ? encodeURIComponent(String(item.data.id)) : 'last'}`;

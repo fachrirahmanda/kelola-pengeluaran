@@ -4,9 +4,10 @@ import { api, ApiRequestError } from '../api';
 import { budgetStatus, type BudgetLine, type BudgetMonth } from '../../shared/budget';
 import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
-import { METHODS, isBilledKind, type Category, type Method, type PaymentSource, type SourceHolder, type Transaction, type TransactionInput } from '../../shared/types';
+import { isBilledKind, type Category, type Method, type PaymentSource, type SourceHolder, type Transaction, type TransactionInput } from '../../shared/types';
+import { BankBadge } from './BankBadge';
 import { DatePicker } from './DatePicker';
-import { Icon } from './Icon';
+import { Dropdown } from './Dropdown';
 
 interface TransactionFormProps {
   categories: Category[];
@@ -15,34 +16,24 @@ interface TransactionFormProps {
   holders?: SourceHolder[];
   /** Set when editing. Without it the form creates a new transaction. */
   initial?: Transaction;
+  /** A transfer between savings accounts: no category, and not counted as spending. */
+  transferOnly?: boolean;
   submitLabel: string;
   onSaved: (transaction: Transaction) => void;
   onCancel?: () => void;
 }
 
-const METHOD_ICONS: Record<Method, string> = {
-  cash: 'banknote',
-  debit: 'card',
-  transfer: 'transfer',
-  credit: 'receipt',
-};
-
-const METHOD_KEYS = {
-  cash: 'method.cash',
-  debit: 'method.debit',
-  transfer: 'method.transfer',
-  credit: 'method.credit',
-} as const;
-
-export function TransactionForm({ categories, sources, holders = [], initial, submitLabel, onSaved, onCancel }: TransactionFormProps) {
+export function TransactionForm({ categories, sources, holders = [], initial, transferOnly = false, submitLabel, onSaved, onCancel }: TransactionFormProps) {
   const { t, money, categoryName } = usePrefs();
   const [occurredOn, setOccurredOn] = useState(initial?.occurredOn ?? todayInWib());
   const [occurredTime, setOccurredTime] = useState(initial?.occurredTime ?? '');
   const [amount, setAmount] = useState(initial ? String(initial.amount) : '');
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? '');
   const [note, setNote] = useState(initial?.note ?? '');
-  const [method, setMethod] = useState<Method>(initial?.method ?? 'cash');
+  const transfer = transferOnly || initial?.method === 'transfer';
   const [sourceId, setSourceId] = useState(initial?.sourceId ?? '');
+  // Transfer only: the savings account the money goes to.
+  const [toSourceId, setToSourceId] = useState(initial?.toSourceId ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   // This month's budgets, to warn on a category that is near or over its budget.
@@ -55,17 +46,18 @@ export function TransactionForm({ categories, sources, holders = [], initial, su
       .catch(() => undefined);
   }, []);
 
-  // Credit needs a credit card or paylater. Other methods may use savings, or no source at all.
   // "BCA · Rina": whose account it is, when the data is shared by more than one person.
   const sourceLabel = (source: PaymentSource) => {
     const holder = holders.length > 1 ? holders.find((person) => person.userId === source.holderId) : undefined;
     return holder ? `${source.name} · ${(holder.name || holder.email).split(/[\s@]/)[0]}` : source.name;
   };
-  const billedSources = sources.filter((source) => isBilledKind(source.kind));
   const savingsSources = sources.filter((source) => source.kind === 'savings');
   const selectedCategoryId = categoryId || categories[0]?.id || '';
-  const selectedBilled = billedSources.find((source) => source.id === sourceId) ?? billedSources[0];
+  // Cards: the source picked decides the method. A credit card or paylater is billed later (credit); a savings account is debit.
+  const selectedCard = sources.find((source) => source.id === sourceId);
+  const method: Method = transfer ? 'transfer' : selectedCard && isBilledKind(selectedCard.kind) ? 'credit' : 'debit';
   const selectedSavings = savingsSources.find((source) => source.id === sourceId);
+  const selectedTo = savingsSources.find((source) => source.id === toSourceId && source.id !== sourceId);
   const amountNumber = Number(amount);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -75,15 +67,21 @@ export function TransactionForm({ categories, sources, holders = [], initial, su
       setError(t('form.amountRequired'));
       return;
     }
+    if (!transfer && !selectedCard) {
+      setError(t('form.pickCard'));
+      return;
+    }
 
     const body: TransactionInput = {
       occurredOn,
       occurredTime: occurredTime || null,
       amount: amountNumber,
-      categoryId: selectedCategoryId,
+      // A transfer has no category; the server files it under the hidden Transfer one.
+      categoryId: transfer ? '' : selectedCategoryId,
       note,
       method,
-      sourceId: method === 'credit' ? (selectedBilled?.id ?? null) : (selectedSavings?.id ?? null),
+      sourceId: transfer ? (selectedSavings?.id ?? null) : (selectedCard?.id ?? null),
+      toSourceId: method === 'transfer' ? (selectedTo?.id ?? null) : null,
     };
 
     setSaving(true);
@@ -133,111 +131,97 @@ export function TransactionForm({ categories, sources, holders = [], initial, su
         </span>
       </label>
 
-      <div className="tx-field">
-        <span className="tx-field-label">{t('form.method')}</span>
-        <div className="chip-row" role="radiogroup" aria-label={t('form.method')}>
-          {METHODS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={method === option}
-              className="pill"
-              onClick={() => setMethod(option)}
-            >
-              <span aria-hidden="true">
-                <Icon name={METHOD_ICONS[option]} size={20} />
-              </span>
-              {t(METHOD_KEYS[option])}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {method === 'credit' ? (
-        <div className="tx-field">
-          <span className="tx-field-label">{t('form.billedSource')}</span>
-          {billedSources.length === 0 ? (
-            <p className="tx-hint">{t('form.noBilledSources')}</p>
-          ) : (
-            <div className="chip-row" role="radiogroup" aria-label={t('form.billedSource')}>
-              {billedSources.map((source) => (
-                <button
-                  key={source.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedBilled?.id === source.id}
-                  className="pill"
-                  onClick={() => setSourceId(source.id)}
-                >
-                  {sourceLabel(source)}
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="tx-hint">{t('form.cardNote')}</p>
-        </div>
-      ) : (
-        savingsSources.length > 0 && (
+      {transfer ? (
+        <>
           <div className="tx-field">
-            <span className="tx-field-label">{t('form.savingsSource')}</span>
-            <div className="chip-row" role="radiogroup" aria-label={t('form.savingsSource')}>
-              <button type="button" role="radio" aria-checked={!selectedSavings} className="pill" onClick={() => setSourceId('')}>
-                {t('form.sourceNone')}
-              </button>
-              {savingsSources.map((source) => (
-                <button
-                  key={source.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selectedSavings?.id === source.id}
-                  className="pill"
-                  onClick={() => setSourceId(source.id)}
-                >
-                  {sourceLabel(source)}
-                </button>
-              ))}
-            </div>
+            <span className="tx-field-label">{t('form.transferFrom')}</span>
+            {savingsSources.length === 0 ? (
+              <p className="tx-hint">{t('pay.noSavings')}</p>
+            ) : (
+              <Dropdown
+                value={selectedSavings?.id ?? ''}
+                options={savingsSources.map((source) => ({ value: source.id, label: sourceLabel(source), icon: <BankBadge bankId={source.bank} size={20} /> }))}
+                onChange={(id) => {
+                  setSourceId(id);
+                  if (toSourceId === id) setToSourceId('');
+                }}
+                ariaLabel={t('form.transferFrom')}
+              />
+            )}
           </div>
-        )
+          <div className="tx-field">
+            <span className="tx-field-label">{t('form.transferTo')}</span>
+            {savingsSources.filter((source) => source.id !== sourceId).length === 0 ? (
+              <p className="tx-hint">{t('form.transferNoTarget')}</p>
+            ) : (
+              <Dropdown
+                value={selectedTo?.id ?? ''}
+                options={savingsSources
+                  .filter((source) => source.id !== sourceId)
+                  .map((source) => ({ value: source.id, label: sourceLabel(source), icon: <BankBadge bankId={source.bank} size={20} /> }))}
+                onChange={setToSourceId}
+                ariaLabel={t('form.transferTo')}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <div className="tx-field">
+          <span className="tx-field-label">{t('form.cardSource')}</span>
+          {sources.length === 0 ? (
+            <p className="tx-hint">
+              <Link to="/sources">{t('form.noSources')}</Link>
+            </p>
+          ) : (
+            <Dropdown
+              value={selectedCard?.id ?? ''}
+              options={sources.map((source) => ({ value: source.id, label: sourceLabel(source), icon: <BankBadge bankId={source.bank} size={20} /> }))}
+              onChange={setSourceId}
+              ariaLabel={t('form.cardSource')}
+            />
+          )}
+          {selectedCard && isBilledKind(selectedCard.kind) && <p className="tx-hint">{t('form.cardNote')}</p>}
+        </div>
       )}
 
-      <div className="tx-field">
-        <span className="tx-field-label">{t('form.category')}</span>
-        {categories.length === 0 && (
-          <p className="tx-hint">
-            <Link to="/settings?tab=categories">{t('form.noCategories')}</Link>
-          </p>
-        )}
-        <div className="category-grid" role="radiogroup" aria-label={t('form.category')}>
-          {categories.map((category) => {
-            const line = budgets.get(category.id);
-            const status = line ? budgetStatus(line.spent, line.amount) : 'none';
-            return (
-              <button
-                key={category.id}
-                type="button"
-                role="radio"
-                aria-checked={selectedCategoryId === category.id}
-                className="category-option"
-                style={{ '--cat-color': category.color } as CSSProperties}
-                onClick={() => setCategoryId(category.id)}
-              >
-                <span className="cat-badge" aria-hidden="true">
-                  {category.icon}
-                </span>
-                <span className="category-option-name">{categoryName(category.name)}</span>
-                {(status === 'near' || status === 'over') && (
-                  <span className={`badge ${status === 'over' ? 'badge-danger' : 'badge-warning'} category-option-budget`}>
-                    {t(status === 'over' ? 'budgets.status.over' : 'budgets.status.near')}
+      {!transfer && (
+        <div className="tx-field">
+          <span className="tx-field-label">{t('form.category')}</span>
+          {categories.length === 0 && (
+            <p className="tx-hint">
+              <Link to="/settings?tab=categories">{t('form.noCategories')}</Link>
+            </p>
+          )}
+          <div className="category-grid" role="radiogroup" aria-label={t('form.category')}>
+            {categories.map((category) => {
+              const line = budgets.get(category.id);
+              const status = line ? budgetStatus(line.spent, line.amount) : 'none';
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedCategoryId === category.id}
+                  className="category-option"
+                  style={{ '--cat-color': category.color } as CSSProperties}
+                  onClick={() => setCategoryId(category.id)}
+                >
+                  <span className="cat-badge" aria-hidden="true">
+                    {category.icon}
                   </span>
-                )}
-              </button>
-            );
-          })}
+                  <span className="category-option-name">{categoryName(category.name)}</span>
+                  {(status === 'near' || status === 'over') && (
+                    <span className={`badge ${status === 'over' ? 'badge-danger' : 'badge-warning'} category-option-budget`}>
+                      {t(status === 'over' ? 'budgets.status.over' : 'budgets.status.near')}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <BudgetHint line={budgets.get(selectedCategoryId)} name={categoryName(categories.find((category) => category.id === selectedCategoryId)?.name ?? '')} adding={initial ? 0 : amountNumber} />
         </div>
-        <BudgetHint line={budgets.get(selectedCategoryId)} name={categoryName(categories.find((category) => category.id === selectedCategoryId)?.name ?? '')} adding={initial ? 0 : amountNumber} />
-      </div>
+      )}
 
       <div className="tx-grid">
         <label className="tx-field">

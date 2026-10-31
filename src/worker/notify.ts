@@ -7,9 +7,6 @@ import { openBillsOf } from './routes/bills';
 // something happens: an invitation, a change someone else made in shared data, or a card bill that is due
 // soon. Writing never fails the action that caused it; the error is logged instead.
 
-/** Card and paylater bills are reminded this many days before they are due (and after, until paid). */
-const BILL_WARNING_DAYS = 3;
-
 /** The owner of a data set and everyone who can see it: the owner's members, the owner included. */
 export async function peopleOf(env: Env, userId: string): Promise<string[]> {
   const { results } = await env.DB.prepare('SELECT user_id FROM workspace_members WHERE owner_id = ?').bind(userId).all<{ user_id: string }>();
@@ -68,13 +65,27 @@ export async function notifyDataChange(env: Env, userId: string, actorId: string
   await notify(env, people, kind, { actor: await nameOf(env, actorId), amount });
 }
 
-/** Reminders for open card and paylater bills that are due within a few days, or already overdue. */
+/** Reminders go out this many days before a bill is due. */
+const DUE_REMINDER_DAYS = [2, 1];
+
+/** Whole days from one YYYY-MM-DD to another. */
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+
+/**
+ * Card and paylater bills: a notice when a bill's billing date (the statement date) has come, and reminders 2 and 1 days
+ * before it is due. Each is stored once, and a bill that is paid stops getting them. A notice opens that card's bills.
+ */
 export async function syncBills(env: Env, userId: string) {
-  const limit = new Date(Date.parse(`${todayInWib()}T00:00:00Z`) + BILL_WARNING_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const due = (await openBillsOf(env, userId)).filter((bill) => bill.dueOn <= limit);
-  if (due.length === 0) return;
+  const today = todayInWib();
+  const open = await openBillsOf(env, userId);
+  if (open.length === 0) return;
   const people = await peopleOf(env, userId);
-  for (const bill of due) {
-    await notify(env, people, 'bill_due', { source: bill.sourceName, amount: bill.total, dueOn: bill.dueOn }, `bill:${bill.sourceId}:${bill.period}`);
+  for (const bill of open) {
+    const data = { source: bill.sourceName, sourceId: bill.sourceId, amount: bill.total, billingOn: bill.billingOn, dueOn: bill.dueOn };
+    if (bill.billingOn <= today) await notify(env, people, 'bill_due', data, `bill:${bill.sourceId}:${bill.period}`);
+    const daysLeft = daysBetween(today, bill.dueOn);
+    if (DUE_REMINDER_DAYS.includes(daysLeft)) {
+      await notify(env, people, 'bill_reminder', { ...data, days: daysLeft }, `due:${bill.sourceId}:${bill.dueOn}:${daysLeft}`);
+    }
   }
 }

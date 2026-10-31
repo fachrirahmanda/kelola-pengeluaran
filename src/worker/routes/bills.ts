@@ -1,4 +1,4 @@
-import { billPeriodOf, closesOn, dueOn } from '../../shared/billing';
+import { billPeriodOf, billingOn, closesOn, dueIn, dueOn, periodStartOf, shiftMonth } from '../../shared/billing';
 import { isBilledKind, type OpenBill, type PaidBill, type SourceKind } from '../../shared/types';
 import type { Env } from '../env';
 import type { RouteContext } from '../context';
@@ -37,6 +37,12 @@ export async function openBillsOf(env: Env, userId: string): Promise<OpenBill[]>
     .bind(userId)
     .all<{ source_id: string; occurred_on: string; amount: number }>();
 
+  // Bills the person set to be paid in the next month, by "source|period".
+  const { results: plans } = await env.DB.prepare('SELECT source_id, period, pay_month FROM bill_plans WHERE user_id = ?')
+    .bind(userId)
+    .all<{ source_id: string; period: string; pay_month: string }>();
+  const movedTo = new Map(plans.map((plan) => [`${plan.source_id}|${plan.period}`, plan.pay_month]));
+
   const open: OpenBill[] = [];
   for (const source of sources) {
     if (!isBilledKind(source.kind) || source.closing_day === null || source.payment_day === null) continue;
@@ -50,13 +56,19 @@ export async function openBillsOf(env: Env, userId: string): Promise<OpenBill[]>
       byPeriod.set(period, bill);
     }
     for (const [period, bill] of byPeriod) {
+      const defaultPayMonth = dueOn(period, source.closing_day, source.payment_day).slice(0, 7);
+      const payMonth = movedTo.get(`${source.id}|${period}`) ?? defaultPayMonth;
       open.push({
         sourceId: source.id,
         sourceName: source.name,
         kind: source.kind,
         period,
+        fromOn: periodStartOf(period, source.closing_day),
         closesOn: closesOn(period, source.closing_day),
-        dueOn: dueOn(period, source.closing_day, source.payment_day),
+        billingOn: billingOn(period, source.closing_day),
+        payMonth,
+        moved: payMonth !== defaultPayMonth,
+        dueOn: dueIn(payMonth, source.payment_day),
         total: bill.total,
         count: bill.count,
       });
@@ -123,6 +135,8 @@ export async function payBill({ request, env, userId, actorId }: RouteContext) {
   const billId = crypto.randomUUID();
 
   const statements = [
+    // Paid now: the bill no longer has a month to move.
+    env.DB.prepare('DELETE FROM bill_plans WHERE source_id = ? AND period = ?').bind(source.id, period),
     env.DB.prepare('INSERT INTO card_bills (id, user_id, source_id, period, total, transaction_count, paid_on, paid_from_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(
       billId,
       userId,
@@ -164,4 +178,30 @@ export async function payBill({ request, env, userId, actorId }: RouteContext) {
   };
   await recordActivity(env, userId, actorId, 'bill_paid', { source: source.name, amount: total });
   return json({ bill }, 201);
+}
+
+/**
+ * PUT /api/bills/plan { sourceId, period, later }: pays an open bill in the next month (later), or in the month it is
+ * due (not later). Only the months that were moved are stored.
+ */
+export async function setBillPlan({ request, env, userId }: RouteContext) {
+  const body = await readJson(request);
+  if (typeof body.sourceId !== 'string') throw new HttpError(400, 'Pilih kartu kredit atau paylater');
+  if (typeof body.period !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.period)) throw new HttpError(400, 'Periode tagihan tidak valid');
+  if (typeof body.later !== 'boolean') throw new HttpError(400, 'Pilih bulan pembayaran');
+
+  const source = await env.DB.prepare('SELECT kind, closing_day, payment_day FROM payment_sources WHERE id = ? AND user_id = ?')
+    .bind(body.sourceId, userId)
+    .first<{ kind: SourceKind; closing_day: number | null; payment_day: number | null }>();
+  if (!source || !isBilledKind(source.kind) || source.closing_day === null || source.payment_day === null) throw new HttpError(400, 'Pilih kartu kredit atau paylater');
+
+  if (body.later) {
+    const payMonth = shiftMonth(dueOn(body.period, source.closing_day, source.payment_day).slice(0, 7), 1);
+    await env.DB.prepare('INSERT OR REPLACE INTO bill_plans (user_id, source_id, period, pay_month) VALUES (?, ?, ?, ?)')
+      .bind(userId, body.sourceId, body.period, payMonth)
+      .run();
+  } else {
+    await env.DB.prepare('DELETE FROM bill_plans WHERE source_id = ? AND period = ? AND user_id = ?').bind(body.sourceId, body.period, userId).run();
+  }
+  return json({ ok: true });
 }

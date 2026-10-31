@@ -1,10 +1,9 @@
 // Types and constants shared by the Worker API and the web app.
 
-export const METHODS = ['cash', 'debit', 'transfer', 'credit'] as const;
+export const METHODS = ['debit', 'transfer', 'credit'] as const;
 export type Method = (typeof METHODS)[number];
 
 export const METHOD_LABELS: Record<Method, string> = {
-  cash: 'Tunai',
   debit: 'Debit',
   transfer: 'Transfer',
   credit: 'Kartu kredit',
@@ -43,6 +42,8 @@ export interface PaymentSource {
   id: string;
   name: string;
   kind: SourceKind;
+  /** Only for credit cards and paylater: the day on the bank statement (3-28). The bill closes 2 days before it. */
+  billingDay?: number | null;
   /** Only for credit cards and paylater. */
   closingDay: number | null;
   paymentDay: number | null;
@@ -79,13 +80,15 @@ export interface Transaction {
   note: string;
   method: Method;
   sourceId: string | null;
+  /** For a transfer: the savings account the money goes to. NULL for other methods. */
+  toSourceId: string | null;
   status: TransactionStatus;
   postedOn: string | null;
   /** Time of day, HH:MM, when it was recorded. Null for older transactions. */
   occurredTime: string | null;
 }
 
-export type TransactionInput = Pick<Transaction, 'occurredOn' | 'occurredTime' | 'amount' | 'categoryId' | 'note' | 'method' | 'sourceId'>;
+export type TransactionInput = Pick<Transaction, 'occurredOn' | 'occurredTime' | 'amount' | 'categoryId' | 'note' | 'method' | 'sourceId' | 'toSourceId'>;
 
 export interface CategoryInput {
   name: string;
@@ -122,7 +125,15 @@ export interface OpenBill {
   kind: SourceKind;
   /** YYYY-MM, the month the bill closes in. */
   period: string;
+  /** The first and last day of the period's purchases. */
+  fromOn: string;
   closesOn: string;
+  /** The statement date. */
+  billingOn: string;
+  /** The month the bill is paid in: the default (the month it is due), or the next one when the person moved it. */
+  payMonth: string;
+  /** True when payMonth is the next month, not the default. */
+  moved: boolean;
   dueOn: string;
   total: number;
   count: number;
@@ -203,7 +214,7 @@ export interface Salary {
   nextPayDate: string;
 }
 
-export const RECURRING_METHODS = ['cash', 'debit', 'transfer'] as const;
+export const RECURRING_METHODS = ['debit', 'transfer'] as const;
 export type RecurringMethod = (typeof RECURRING_METHODS)[number];
 
 /** The data set the signed-in person is working in, and who is in it. */
@@ -262,6 +273,7 @@ export type NotificationKind =
   | 'data_updated'
   | 'data_deleted'
   | 'bill_due'
+  | 'bill_reminder'
   | 'ask_answered'
   | 'ask_failed';
 

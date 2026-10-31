@@ -3,10 +3,10 @@ import { Link, useSearchParams } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { Donut } from '../components/Donut';
 import { Icon } from '../components/Icon';
-import { SidePanel, usePhone } from '../components/SidePanel';
-import { SkeletonDashboard, SkeletonForm, SkeletonRows } from '../components/Skeleton';
-import { TransactionForm } from '../components/TransactionForm';
-import { useBills, useCategories, useRecurring, useSources } from '../data';
+import { AddPanel, type AddKind } from '../components/AddPanel';
+import { usePhone } from '../components/SidePanel';
+import { SkeletonDashboard, SkeletonRows } from '../components/Skeleton';
+import { useBills, useCategories, useRecurring } from '../data';
 import { monthLabel, monthRange, todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 import { addMonths, monthOf } from '../../shared/recurring';
@@ -32,12 +32,12 @@ export function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [error, setError] = useState(false);
   const [budget, setBudget] = useState<{ total: number | null; spent: number } | null>(null);
-  // Add expense lives on this page: the form is the side panel on desktop, and a drawer on phones.
-  // The bottom bar's Add opens it with ?add=1.
-  const { sources, holders } = useSources();
+  // The Add form lives on this page: the side panel on desktop, and a popup on phones. It has a tab for each
+  // thing that can be added (see AddPanel). The bottom bar's Add opens it with ?add=1.
   const phone = usePhone();
   const [params, setParams] = useSearchParams();
   const [adding, setAdding] = useState(params.get('add') === '1');
+  const [addKind, setAddKind] = useState<AddKind>('expense');
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -49,8 +49,7 @@ export function DashboardPage() {
     if (params.get('add')) setParams({}, { replace: true });
   }
 
-  function handleSaved(transaction: Transaction) {
-    window.DS?.toast(t('catat.saved', { amount: money(transaction.amount) }), { variant: 'success' });
+  function handleSaved() {
     closeAdd();
     setVersion((current) => current + 1);
   }
@@ -66,7 +65,8 @@ export function DashboardPage() {
     api
       .get<{ transactions: Transaction[] }>(`/transactions?from=${range.from}&to=${range.to}`)
       .then((data) => {
-        if (!ignore) setTransactions(data.transactions);
+        // A transfer only moves money between accounts, so it is not spending.
+        if (!ignore) setTransactions(data.transactions.filter((item) => item.method !== 'transfer'));
       })
       .catch((requestError: unknown) => {
         if (!ignore) {
@@ -330,13 +330,7 @@ export function DashboardPage() {
         </>
       )}
 
-      <SidePanel open={adding} onClose={closeAdd} title={t('catat.title')}>
-        {categories && sources ? (
-          <TransactionForm categories={categories} sources={sources} holders={holders} submitLabel={t('form.save')} onSaved={handleSaved} />
-        ) : (
-          <SkeletonForm />
-        )}
-      </SidePanel>
+      <AddPanel open={adding} onClose={closeAdd} kind={addKind} onKindChange={setAddKind} onSaved={handleSaved} />
     </>
   );
 }

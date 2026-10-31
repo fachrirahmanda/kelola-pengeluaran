@@ -60,7 +60,8 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
     Promise.all([api.get<{ transactions: Transaction[] }>(`/transactions?${range}`), api.get<{ incomes: Income[] }>(`/incomes?${range}`)])
       .then(([spent, received]) => {
         if (ignore) return;
-        setItems(spent.transactions);
+        // A transfer only moves money between accounts, so it is not spending.
+        setItems(spent.transactions.filter((item) => item.method !== 'transfer'));
         setIncomes(received.incomes);
       })
       .catch(() => {

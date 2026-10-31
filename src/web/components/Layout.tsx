@@ -12,7 +12,8 @@ import { Icon } from './Icon';
 import { UserMenu } from './UserMenu';
 import { Dialog } from './Dialog';
 import { ActivityList, NotificationList, activityLink, initialsOf, linkOf, useNotifications } from './Notifications';
-import { SideSlotContext } from './SidePanel';
+import { SideSlotContext, usePhone } from './SidePanel';
+import { AddPanel, type AddKind } from './AddPanel';
 import { useLiveRefresh } from '../liveRefresh';
 
 const ICON = {
@@ -51,7 +52,6 @@ const TABS: Tab[] = [
   { to: '/transactions', label: 'nav.transactions', icon: ICON.transactions, group: 'history', primary: true },
   { to: '/sources', label: 'settings.sources', icon: ICON.wallets, group: 'tools', primary: false },
   { to: '/loans', label: 'nav.loans', icon: ICON.loans, group: 'tools', primary: false },
-  { to: '/installments', label: 'nav.recurring', icon: ICON.recurring, group: 'tools', primary: false },
   { to: '/bills', label: 'nav.bills', icon: ICON.bills, group: 'tools', primary: false },
   { to: '/budgets', label: 'nav.budgets', icon: ICON.budgets, group: 'tools', primary: false },
   { to: '/reports', label: 'nav.reports', icon: ICON.reports, group: 'tools', primary: false },
@@ -82,6 +82,12 @@ export function Layout() {
   const { busy: asking } = useAsk();
   const openBills = bills?.open.length ?? 0;
   const [more, setMore] = useState(false);
+  // The bottom bar's Add: a popup on phones, with the tab for the kind of thing to add last used.
+  const phone = usePhone();
+  const [adding, setAdding] = useState(false);
+  // The panel mounts on first use, so pages do not load categories and sources until someone adds something.
+  const [addUsed, setAddUsed] = useState(false);
+  const [addKind, setAddKind] = useState<AddKind>('expense');
   const [account, setAccount] = useState(false);
   const [notices, setNotices] = useState(false);
   // The bell's panel: notifications for this person, or everyone's activity in the data set.
@@ -301,6 +307,8 @@ export function Layout() {
         )}
       </Dialog>
 
+      {phone && addUsed && <AddPanel open={adding} onClose={() => setAdding(false)} kind={addKind} onKindChange={setAddKind} onSaved={() => setAdding(false)} />}
+
       <Dialog open={more} onClose={() => setMore(false)} title={t('nav.more')} className="ds-sheet">
         <nav className="ds-more-list" aria-label={t('nav.more')}>
           {GROUP_ORDER.filter((group) => moreTabs.some((tab) => tab.group === group)).map((group) => (
@@ -321,12 +329,29 @@ export function Layout() {
       </Dialog>
 
       <nav className="ds-bottom-nav" aria-label={t('nav.menu')}>
-        {primaryTabs.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} className={`ds-bottom-nav-item${tab.to === '/add' ? ' is-add' : ''}`}>
-            <span className={tab.to === '/add' ? 'bottom-add-circle' : undefined}>{tab.icon}</span>
-            <span className={tab.to === '/add' ? 'visually-hidden' : undefined}>{t(tab.label)}</span>
-          </NavLink>
-        ))}
+        {primaryTabs.map((tab) =>
+          tab.to === '/add' ? (
+            // Add opens the Add form in a popup instead of going to one page.
+            <button
+              key={tab.to}
+              type="button"
+              className="ds-bottom-nav-item is-add"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setAddUsed(true);
+                setAdding(true);
+              }}
+            >
+              <span className="bottom-add-circle">{tab.icon}</span>
+              <span className="visually-hidden">{t(tab.label)}</span>
+            </button>
+          ) : (
+            <NavLink key={tab.to} to={tab.to} className="ds-bottom-nav-item">
+              <span>{tab.icon}</span>
+              <span>{t(tab.label)}</span>
+            </NavLink>
+          ),
+        )}
         <button
           type="button"
           className={`ds-bottom-nav-item${more || moreTabs.some((tab) => tab.to === location.pathname) ? ' active' : ''}`}
