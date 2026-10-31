@@ -39,7 +39,7 @@ const METHOD_KEYS: Record<Method, MessageKey> = {
 export function TransaksiPage() {
   const { t, money, date, categoryName } = usePrefs();
   const { categories } = useCategories();
-  const { sources } = useSources();
+  const { sources, holders } = useSources();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -363,6 +363,7 @@ export function TransaksiPage() {
             key={editing.id}
             categories={categories}
             sources={sources}
+            holders={holders}
             initial={editing}
             submitLabel={t('form.saveChanges')}
             onCancel={closeEdit}

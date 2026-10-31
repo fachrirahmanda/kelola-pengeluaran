@@ -56,6 +56,16 @@ export interface PaymentSource {
   owed?: number;
   /** The bank or e-wallet (an id from banks.ts), or null for cash and other. */
   bank?: string | null;
+  /** The person in the data set this source belongs to (owner or member), or null when it is shared. */
+  holderId?: string | null;
+}
+
+/** Someone a source of funds can belong to: the owner or a member of the data set. */
+export interface SourceHolder {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
 }
 
 /** Credit cards and paylater are billed later, so their transactions stay unpaid until settled. */

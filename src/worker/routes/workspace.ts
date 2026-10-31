@@ -15,7 +15,7 @@ interface MemberRow {
 }
 
 /** A person's photo: their own upload if they have one, else their Google picture (see users.ts). */
-const photoOf = (id: string, avatarUrl: string | null, avatarV: number | null) => (avatarV ? `/api/avatar/${id}?v=${avatarV}` : avatarUrl);
+export const photoOf = (id: string, avatarUrl: string | null, avatarV: number | null) => (avatarV ? `/api/avatar/${id}?v=${avatarV}` : avatarUrl);
 
 /** The signed-in person's email, lower-cased. */
 async function actorEmail(env: RouteContext['env'], actorId: string): Promise<string> {

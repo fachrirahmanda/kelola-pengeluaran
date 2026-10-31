@@ -4474,3 +4474,39 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 .tx-item.recent-tile {
   border-bottom: 0;
 }
+
+/* Sources of funds by member: the filter above the cards, and who a card belongs to. */
+.holder-filter {
+  margin-bottom: var(--space-3);
+}
+
+.holder-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.holder-avatar {
+  font-weight: 600;
+  line-height: 1;
+}
+
+.source-holder {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px 3px 3px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+}
+
+.source-holder > svg {
+  margin-left: 4px;
+}
+
+.source-card .holder-avatar {
+  background: rgb(255 255 255 / 0.9);
+  color: #18181b;
+}
