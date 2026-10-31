@@ -1930,6 +1930,58 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
+/* While an answer is on its way: a pulsing dot with the status and seconds, then a blinking caret after the
+   text as it is written. */
+.ask-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.ask-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: ask-pulse 1.2s ease-in-out infinite;
+}
+
+.ask-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: ask-blink 1s steps(1) infinite;
+}
+
+@keyframes ask-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ask-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-pulse,
+  .ask-caret {
+    animation: none;
+  }
+}
+
 /* Profile head: the photo is the button to change it. A pencil sits on its corner all the time, and on hover
    (or while uploading) the photo dims with "Change" over it. */
 .profile-head {

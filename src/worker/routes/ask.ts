@@ -1,6 +1,6 @@
 import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
 import type { RouteContext } from '../context';
-import { fillCalculations } from '../calc';
+import { calculationStream, fillCalculations } from '../calc';
 import { HttpError, json, readJson } from '../http';
 import { aiConfig, chat } from '../nvidia';
 
@@ -229,21 +229,61 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
     { role: 'user' as const, content: row.question },
     { role: 'assistant' as const, content: row.answer },
   ]);
-  const raw = await chat(config, [
+  const messages: Parameters<typeof chat>[1] = [
     { role: 'system', content: `${SYSTEM_PROMPT} The person’s currency is ${currency}.\n\n${APP_GUIDE}\n\n${FINANCE_GUIDE}\n\n${CALCULATOR}` },
     ...earlier,
     { role: 'user', content: `${summary}
 
 Question: ${question}` },
-  ]);
-  // Stored with the results filled in, so the history and the next question's context show numbers.
-  const answer = fillCalculations(raw, localeOf(question, raw));
-  const id = crypto.randomUUID();
-  await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day, question, answer) VALUES (?, ?, ?, ?, ?)')
-    .bind(id, actorId, day, question, answer)
-    .run();
-  const row = await env.DB.prepare('SELECT created_at FROM ai_questions WHERE id = ?').bind(id).first<{ created_at: string }>();
-  return json({ answer, id, createdAt: row?.created_at ?? '' });
+  ];
+
+  // The answer is sent as it is written, one JSON object per line: "thinking" once a reasoning model starts
+  // working, "text" for each piece of the answer, then "done" with the whole answer as saved, or "error".
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (event: Record<string, unknown>) => {
+        try {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        } catch {
+          // The page went away; the answer is still saved below.
+        }
+      };
+      let streamed = '';
+      let thinking = false;
+      const calculations = calculationStream(() => localeOf(question, streamed));
+      try {
+        const raw = await chat(config, messages, {
+          onThinking: () => {
+            if (thinking) return;
+            thinking = true;
+            send({ type: 'thinking' });
+          },
+          onText: (text) => {
+            streamed += text;
+            const ready = calculations.push(text);
+            if (ready) send({ type: 'text', text: ready });
+          },
+        });
+        const rest = calculations.flush();
+        if (rest) send({ type: 'text', text: rest });
+        // Stored with the results filled in, so the history and the next question's context show numbers.
+        const answer = fillCalculations(raw, localeOf(question, raw));
+        const id = crypto.randomUUID();
+        await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day, question, answer) VALUES (?, ?, ?, ?, ?)')
+          .bind(id, actorId, day, question, answer)
+          .run();
+        const row = await env.DB.prepare('SELECT created_at FROM ai_questions WHERE id = ?').bind(id).first<{ created_at: string }>();
+        send({ type: 'done', answer, id, createdAt: row?.created_at ?? '' });
+      } catch (error) {
+        if (!(error instanceof HttpError)) console.error('ask failed', error);
+        send({ type: 'error', message: error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.' });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, { headers: { 'content-type': 'application/x-ndjson; charset=utf-8', 'cache-control': 'no-store, no-transform' } });
 }
 
 /**
