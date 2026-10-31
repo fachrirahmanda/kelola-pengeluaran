@@ -216,8 +216,9 @@ export function DashboardPage() {
                   ))}
                 </ul>
               )}
-              <Link to="/bills" className="dash-link">
+              <Link to="/bills" className="btn btn-sm dash-panel-action">
                 {t('dash.openBills')}
+                <Icon name="chevron-right" size={14} />
               </Link>
             </section>
 
