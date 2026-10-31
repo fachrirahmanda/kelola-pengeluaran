@@ -117,49 +117,30 @@ export function evaluate(expression: string, locale = 'en-US'): number {
 }
 
 /**
+ * A result with the locale's separators and at most two decimals: 17.395.000 and 888.487,89 for id-ID,
+ * 17,395,000 and 888,487.89 otherwise. Written by hand rather than with Intl.NumberFormat, whose first use
+ * loads locale data and costs more CPU time than the Worker can spare.
+ */
+function formatNumber(value: number, locale: string) {
+  const [group, point] = locale === 'id-ID' ? ['.', ','] : [',', '.'];
+  const rounded = Math.round(value * 100) / 100;
+  const [whole, fraction] = Math.abs(rounded).toFixed(2).split('.');
+  const digits = fraction.replace(/0+$/, '');
+  return `${rounded < 0 ? '-' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, group)}${digits ? point + digits : ''}`;
+}
+
+/**
  * Replaces each [[= expression]] in an answer with its result, written with the locale's separators and
  * at most two decimals. An expression that cannot be worked out is left as plain text, without brackets.
  */
 export function fillCalculations(answer: string, locale: string): string {
-  const format = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+  if (!answer.includes('[[')) return answer;
   return answer.replace(PLACEHOLDER, (_, expression: string) => {
     try {
-      return format.format(evaluate(expression, locale));
+      return formatNumber(evaluate(expression, locale), locale);
     } catch (error) {
       console.error('ask calc failed', expression, String(error));
       return expression;
     }
   });
-}
-
-/** Longest text kept back while waiting for a "]]": a placeholder is at most 300 characters. */
-const HOLD_LIMIT = 320;
-
-/**
- * Fills calculations in an answer that arrives in pieces. Text is passed on as soon as it is safe: an
- * unfinished [[= … is kept back until its ]] arrives, so a result never shows half-written. The locale is
- * asked for each time, since it can depend on the answer so far.
- */
-export function calculationStream(locale: () => string) {
-  let held = '';
-  return {
-    /** The text that can be shown now, with any finished calculations filled in. */
-    push(piece: string): string {
-      held += piece;
-      let cut = held.length;
-      const open = held.lastIndexOf('[[');
-      if (open >= 0 && held.indexOf(']]', open) < 0) cut = open;
-      else if (held.endsWith('[')) cut = held.length - 1;
-      if (held.length - cut > HOLD_LIMIT) cut = held.length;
-      const ready = held.slice(0, cut);
-      held = held.slice(cut);
-      return ready ? fillCalculations(ready, locale()) : '';
-    },
-    /** Whatever was kept back, once the answer has ended. */
-    flush(): string {
-      const rest = held ? fillCalculations(held, locale()) : '';
-      held = '';
-      return rest;
-    },
-  };
 }

@@ -1,6 +1,6 @@
 import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
 import type { RouteContext } from '../context';
-import { calculationStream, fillCalculations } from '../calc';
+import { fillCalculations } from '../calc';
 import { HttpError, json, readJson } from '../http';
 import { aiConfig, chat } from '../nvidia';
 
@@ -237,8 +237,9 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
 Question: ${question}` },
   ];
 
-  // The answer is sent as it is written, one JSON object per line: "thinking" once a reasoning model starts
-  // working, "text" for each piece of the answer, then "done" with the whole answer as saved, or "error".
+  // The answer comes whole (see nvidia.ts), but it can take a minute or two. Meanwhile the page gets one JSON
+  // object per line: "thinking" every 15 seconds, so the connection never sits idle, then "done" with the
+  // answer as saved, or "error".
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -249,29 +250,9 @@ Question: ${question}` },
           // The page went away; the answer is still saved below.
         }
       };
-      let streamed = '';
-      let thinking = false;
-      // While nothing is written yet (queued, or a long think), a "thinking" line every 15 seconds keeps the
-      // connection to the page from looking idle.
-      const heartbeat = setInterval(() => {
-        if (!streamed) send({ type: 'thinking' });
-      }, 15_000);
-      const calculations = calculationStream(() => localeOf(question, streamed));
+      const heartbeat = setInterval(() => send({ type: 'thinking' }), 15_000);
       try {
-        const raw = await chat(config, messages, {
-          onThinking: () => {
-            if (thinking) return;
-            thinking = true;
-            send({ type: 'thinking' });
-          },
-          onText: (text) => {
-            streamed += text;
-            const ready = calculations.push(text);
-            if (ready) send({ type: 'text', text: ready });
-          },
-        });
-        const rest = calculations.flush();
-        if (rest) send({ type: 'text', text: rest });
+        const raw = await chat(config, messages);
         // Stored with the results filled in, so the history and the next question's context show numbers.
         const answer = fillCalculations(raw, localeOf(question, raw));
         const id = crypto.randomUUID();
