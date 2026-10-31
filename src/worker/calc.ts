@@ -144,35 +144,3 @@ export function fillCalculations(answer: string, locale: string): string {
     }
   });
 }
-
-/** Longest text kept back while waiting for a "]]": a placeholder is at most 300 characters. */
-const HOLD_LIMIT = 320;
-
-/**
- * Fills calculations in an answer that arrives in pieces. Text is passed on as soon as it is safe: an
- * unfinished [[= … is kept back until its ]] arrives, so a result never shows half-written. The locale is
- * asked for each time, since it can depend on the answer so far.
- */
-export function calculationStream(locale: () => string) {
-  let held = '';
-  return {
-    /** The text that can be shown now, with any finished calculations filled in. */
-    push(piece: string): string {
-      held += piece;
-      let cut = held.length;
-      const open = held.lastIndexOf('[[');
-      if (open >= 0 && held.indexOf(']]', open) < 0) cut = open;
-      else if (held.endsWith('[')) cut = held.length - 1;
-      if (held.length - cut > HOLD_LIMIT) cut = held.length;
-      const ready = held.slice(0, cut);
-      held = held.slice(cut);
-      return ready.includes('[[') ? fillCalculations(ready, locale()) : ready;
-    },
-    /** Whatever was kept back, once the answer has ended. */
-    flush(): string {
-      const rest = held.includes('[[') ? fillCalculations(held, locale()) : held;
-      held = '';
-      return rest;
-    },
-  };
-}
