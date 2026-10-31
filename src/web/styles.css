@@ -1916,9 +1916,23 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   box-shadow: 0 16px 0 var(--bg);
 }
 
+/* The composer is the last thing on the page, so the space under the page is the same as where the composer
+   sticks: at the end of the conversation it rests in the same place instead of rising above a gap. */
+.app-main > .container:has(.ask-page) {
+  padding-bottom: 16px;
+}
+
 @media (max-width: 720px) {
   .ask-dock {
     bottom: 86px;
+  }
+
+  .app-main:has(.ask-page) {
+    padding-bottom: 86px;
+  }
+
+  .app-main > .container:has(.ask-page) {
+    padding-bottom: 0;
   }
 
   html.is-typing .ds-bottom-nav {
@@ -1927,6 +1941,10 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
   html.is-typing .ask-dock {
     bottom: 8px;
+  }
+
+  html.is-typing .app-main:has(.ask-page) {
+    padding-bottom: 8px;
   }
 }
 

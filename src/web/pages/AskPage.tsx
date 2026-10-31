@@ -159,7 +159,7 @@ export function AskPage() {
   const today = dayOf('');
 
   return (
-    <div className="stack-lg">
+    <div className="stack-lg ask-page">
       <div className="page-header">
         <div>
           <h2>{t('ask.title')}</h2>
