@@ -61,6 +61,13 @@ function nvidiaDetail(body: string) {
   return body.slice(0, 300) || 'tanpa keterangan';
 }
 
+// A reasoning model streams thousands of small chunks while it thinks, and the Worker has little CPU time per
+// request. So a chunk is only parsed when it carries answer text or a finish reason; the rest are recognised
+// by these patterns, without parsing.
+const HAS_TEXT = /"content":\s*"[^"]/;
+const HAS_FINISH = /"finish_reason":\s*"/;
+const HAS_THINKING = /"reasoning(_content)?":\s*"[^"]/;
+
 /** What one streamed chunk or a whole (non-streamed) answer may hold. */
 interface Choice {
   delta?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null };
@@ -138,28 +145,41 @@ export async function chat(config: AiConfig, messages: { role: 'system' | 'user'
       } else {
         reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
         let buffer = '';
+        let thinking = false;
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
           touch();
-          buffer += value;
-          let newline: number;
-          while ((newline = buffer.indexOf('\n')) >= 0) {
-            const line = buffer.slice(0, newline).trim();
-            buffer = buffer.slice(newline + 1);
+          const text = buffer + value;
+          // Most pieces are only thinking: no line in them needs to be read.
+          if (!HAS_TEXT.test(text) && !HAS_FINISH.test(text)) {
+            if (!thinking && HAS_THINKING.test(text)) {
+              thinking = true;
+              events.onThinking?.();
+            }
+            buffer = text.slice(text.lastIndexOf('\n') + 1);
+            continue;
+          }
+          const lines = text.split('\n');
+          buffer = lines.pop() ?? '';
+          for (const line of lines) {
             if (!line.startsWith('data:')) continue;
-            const payload = line.slice(5).trim();
-            if (payload === '[DONE]') continue;
+            if (!HAS_TEXT.test(line) && !HAS_FINISH.test(line)) {
+              if (!thinking && HAS_THINKING.test(line)) {
+                thinking = true;
+                events.onThinking?.();
+              }
+              continue;
+            }
             try {
-              const choice = (JSON.parse(payload) as { choices?: Choice[] }).choices?.[0];
-              if (choice?.delta?.reasoning_content || choice?.delta?.reasoning) events.onThinking?.();
+              const choice = (JSON.parse(line.slice(5)) as { choices?: Choice[] }).choices?.[0];
               if (choice?.delta?.content) {
                 answer += choice.delta.content;
                 events.onText?.(choice.delta.content);
               }
               if (choice?.finish_reason) finish = choice.finish_reason;
             } catch {
-              // Not JSON (a keep-alive or a comment): skipped.
+              // Not JSON (a comment): skipped.
             }
           }
         }

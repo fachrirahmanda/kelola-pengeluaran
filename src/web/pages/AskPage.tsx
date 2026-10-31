@@ -84,12 +84,12 @@ export function AskPage() {
           update(() => ({ id: event.id, question: trimmed, answer: event.answer, createdAt: event.createdAt }));
         } else throw new ApiRequestError(event.message, 502);
       });
-      // The connection closed before the answer was complete.
       if (!finished) throw new Error('incomplete');
     } catch (requestError) {
       setHistory((list) => list.filter((item) => item.id !== pending.id));
       setQuestion(trimmed);
-      setError(requestError instanceof ApiRequestError ? requestError.message : t('ask.failed'));
+      // Anything but a message from the server means the connection closed before the answer was complete.
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('ask.cutOff'));
     } finally {
       setBusy(false);
     }

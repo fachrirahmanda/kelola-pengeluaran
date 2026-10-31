@@ -251,6 +251,11 @@ Question: ${question}` },
       };
       let streamed = '';
       let thinking = false;
+      // While nothing is written yet (queued, or a long think), a "thinking" line every 15 seconds keeps the
+      // connection to the page from looking idle.
+      const heartbeat = setInterval(() => {
+        if (!streamed) send({ type: 'thinking' });
+      }, 15_000);
       const calculations = calculationStream(() => localeOf(question, streamed));
       try {
         const raw = await chat(config, messages, {
@@ -279,6 +284,7 @@ Question: ${question}` },
         if (!(error instanceof HttpError)) console.error('ask failed', error);
         send({ type: 'error', message: error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.' });
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },
