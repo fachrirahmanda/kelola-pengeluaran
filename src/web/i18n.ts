@@ -200,6 +200,7 @@ const MESSAGES = {
   'ask.thinking': { en: 'Thinking…', id: 'Sedang menjawab…' },
   'ask.reasoning': { en: 'Working it out…', id: 'Sedang berpikir…' },
   'ask.seconds': { en: '{n}s', id: '{n} dtk' },
+  'ask.part': { en: 'Answering question {n} of {total}…', id: 'Menjawab pertanyaan {n} dari {total}…' },
   'ask.cutOff': { en: 'The connection closed before the answer was complete. Try again.', id: 'Koneksi terputus sebelum jawaban selesai. Coba lagi.' },
   'ask.failed': { en: 'Ask AI could not answer. Try again.', id: 'Ask AI tidak bisa menjawab. Coba lagi.' },
   'ask.clear': { en: 'Clear history', id: 'Hapus riwayat' },
