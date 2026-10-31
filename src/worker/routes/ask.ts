@@ -43,7 +43,7 @@ const APP_GUIDE = [
   '- Budgeting: monthly spending limits. Sources of funds: savings accounts, credit cards and paylater, with balances; income into an account raises its balance, and salary is added on every payday by itself.',
   '- Settings: categories, workspace members (the owner invites people by email; members see and change the same data), storage and Ask AI. Profile: name, photo, language, currency and color style.',
   '- The bell shows notifications: invitations, changes others made in shared data, and card bills due within 3 days. Ask AI allows 50 questions per person per day.',
-  '- Payment methods are cash, debit, transfer and credit. Cash, debit and transfer count as spending on the day they happen. Credit card and paylater purchases stay unpaid until their bill is paid and then count in the month the bill is paid. A card’s bill period ends on its closing day, and the bill is due on its payment day.',
+  '- Payment methods are debit and credit cards (Cards), plus transfers between savings accounts. Debit counts as spending on the day it happens. A transfer is not spending: it only moves money between accounts, so it is left out of spending totals. Credit card and paylater purchases stay unpaid until their bill is paid and then count in the month the bill is paid. A card’s bill period ends on its closing day, and the bill is due on its payment day.',
 ].join('\n');
 
 /** General personal-finance knowledge, with the formulas the model should use. */
@@ -109,7 +109,7 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
     env.DB.prepare('SELECT id, name FROM categories WHERE user_id = ?').bind(userId).all<{ id: string; name: string }>(),
     env.DB.prepare(
       `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total, COUNT(*) AS count
-       FROM transactions WHERE user_id = ? AND status = 'posted' AND posted_on >= ? GROUP BY month, category_id`,
+       FROM transactions WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? GROUP BY month, category_id`,
     )
       .bind(userId, start)
       .all<{ month: string; category_id: string; total: number; count: number }>(),

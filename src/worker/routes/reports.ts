@@ -34,7 +34,7 @@ export async function monthlyReport({ request, env, userId }: RouteContext) {
   const { results } = await env.DB.prepare(
     `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total, COUNT(*) AS count
      FROM transactions
-     WHERE user_id = ? AND status = 'posted' AND posted_on >= ? AND posted_on <= ?
+     WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? AND posted_on <= ?
      GROUP BY month, category_id`,
   )
     .bind(userId, start, end)

@@ -7,7 +7,7 @@ import { TransactionForm } from '../components/TransactionForm';
 import { useCategories, useSources } from '../data';
 import type { MessageKey } from '../i18n';
 import { usePrefs } from '../prefs';
-import { METHODS, type Method, type Transaction } from '../../shared/types';
+import { type Income, type Method, type Transaction } from '../../shared/types';
 import { DatePicker } from '../components/DatePicker';
 import { Icon } from '../components/Icon';
 import { TransactionCalendar } from '../components/TransactionCalendar';
@@ -19,6 +19,9 @@ const LIST_LIMIT = 500;
 /** Transactions per page in the list. */
 const TX_PAGE_SIZE = 20;
 
+/** A line of the list: a transaction, or an income (a one-off, or a salary's payday). */
+type Row = { key: string; occurredOn: string; kind: 'transaction'; transaction: Transaction } | { key: string; occurredOn: string; kind: 'income'; income: Income };
+
 interface Filters {
   from: string;
   to: string;
@@ -29,11 +32,11 @@ interface Filters {
 
 const EMPTY_FILTERS: Filters = { from: '', to: '', category: '', method: '', q: '' };
 
+// Debit and credit cards are both Cards in the app.
 const METHOD_KEYS: Record<Method, MessageKey> = {
-  cash: 'method.cash',
-  debit: 'method.debit',
+  debit: 'method.cards',
   transfer: 'method.transfer',
-  credit: 'method.credit',
+  credit: 'method.cards',
 };
 
 export function TransaksiPage() {
@@ -42,13 +45,27 @@ export function TransaksiPage() {
   const { sources, holders } = useSources();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+  const [incomes, setIncomes] = useState<Income[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
-  const paging = usePage(transactions?.length ?? 0, TX_PAGE_SIZE, [filters.q, filters.from, filters.to, filters.category, filters.method]);
+  // Transactions and incomes, newest first. Incomes have no category or method, so those filters leave them out,
+  // and the search only keeps the ones whose note matches.
+  const rows = useMemo<Row[]>(() => {
+    const search = filters.q.trim().toLowerCase();
+    const incomeRows: Row[] =
+      filters.category || filters.method
+        ? []
+        : (incomes ?? [])
+            .filter((income) => !search || income.note.toLowerCase().includes(search))
+            .map((income): Row => ({ key: `income-${income.id}`, occurredOn: income.occurredOn, kind: 'income', income }));
+    const transactionRows = (transactions ?? []).map((transaction): Row => ({ key: transaction.id, occurredOn: transaction.occurredOn, kind: 'transaction', transaction }));
+    return [...transactionRows, ...incomeRows].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
+  }, [transactions, incomes, filters.q, filters.category, filters.method]);
+  const paging = usePage(rows.length, TX_PAGE_SIZE, [filters.q, filters.from, filters.to, filters.category, filters.method]);
 
   // Fetch after the user stops typing for a moment.
   useEffect(() => {
@@ -58,11 +75,16 @@ export function TransaksiPage() {
       for (const [key, value] of Object.entries(filters)) {
         if (value) params.set(key, value);
       }
-      api
-        .get<{ transactions: Transaction[] }>(`/transactions?${params}`)
-        .then((data) => {
+      // Incomes have no category or method, so the category and method filters leave them out.
+      const incomeRange = `from=${filters.from || '1900-01-01'}&to=${filters.to || '2999-12-31'}`;
+      Promise.all([
+        api.get<{ transactions: Transaction[] }>(`/transactions?${params}`),
+        filters.category || filters.method ? Promise.resolve({ incomes: [] as Income[] }) : api.get<{ incomes: Income[] }>(`/incomes?${incomeRange}`),
+      ])
+        .then(([data, received]) => {
           if (ignore) return;
           setTransactions(data.transactions);
+          setIncomes(received.incomes);
           setLoadError('');
         })
         .catch((error: unknown) => {
@@ -81,7 +103,8 @@ export function TransaksiPage() {
   const sourceById = useMemo(() => new Map((sources ?? []).map((source) => [source.id, source])), [sources]);
 
   // Only posted transactions count as spending. Unpaid credit card items are not in the total.
-  const total = (transactions ?? []).filter((item) => item.status === 'posted').reduce((sum, item) => sum + item.amount, 0);
+  // Transfers are listed but are not spending, so the total leaves them out.
+  const total = (transactions ?? []).filter((item) => item.status === 'posted' && item.method !== 'transfer').reduce((sum, item) => sum + item.amount, 0);
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -101,6 +124,18 @@ export function TransaksiPage() {
     try {
       await api.delete(`/transactions/${transaction.id}`);
       window.DS?.toast(t('tx.deleted'));
+      refresh();
+    } catch (error) {
+      setActionError(error instanceof ApiRequestError ? error.message : t('tx.deleteError'));
+    }
+  }
+
+  async function handleDeleteIncome(income: Income) {
+    if (!window.confirm(t('income.confirmDelete', { amount: money(income.amount) }))) return;
+    setActionError('');
+    try {
+      await api.delete(`/incomes/${income.id}`);
+      window.DS?.toast(t('income.deleted'));
       refresh();
     } catch (error) {
       setActionError(error instanceof ApiRequestError ? error.message : t('tx.deleteError'));
@@ -134,7 +169,11 @@ export function TransaksiPage() {
         <span className="field-label">{t('tx.method')}</span>
         <Dropdown
           value={filters.method}
-          options={[{ value: '', label: t('tx.allMethods') }, ...METHODS.map((method) => ({ value: method, label: t(METHOD_KEYS[method]) }))]}
+          options={[
+            { value: '', label: t('tx.allMethods') },
+            { value: 'cards', label: t('method.cards') },
+            { value: 'transfer', label: t('method.transfer') },
+          ]}
           onChange={(next) => updateFilter('method', next)}
           ariaLabel={t('tx.method')}
         />
@@ -220,11 +259,11 @@ export function TransaksiPage() {
         </p>
       )}
 
-      {transactions === null ? (
+      {transactions === null || incomes === null ? (
         <div className="card">
           <SkeletonRows count={6} />
         </div>
-      ) : transactions.length === 0 ? (
+      ) : rows.length === 0 ? (
         <div className="card">
           <div className="empty">
             <p className="empty-title">{t('tx.emptyTitle')}</p>
@@ -234,7 +273,7 @@ export function TransaksiPage() {
       ) : (
         <>
           <p className="hint" style={{ marginBottom: 'var(--space-3)' }}>
-            {t('tx.summary', { count: transactions.length, total: money(total) })}
+            {t('tx.summary', { count: rows.length, total: money(total) })}
             {transactions.length >= LIST_LIMIT && ` · ${t('tx.limitNote', { limit: LIST_LIMIT })}`}
           </p>
 
@@ -254,7 +293,38 @@ export function TransaksiPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageOf(transactions, paging.page, TX_PAGE_SIZE).map((transaction) => {
+                {pageOf(rows, paging.page, TX_PAGE_SIZE).map((row) => {
+                  if (row.kind === 'income') {
+                    const { income } = row;
+                    return (
+                      <tr key={row.key}>
+                        <td data-label={t('tx.col.date')} style={{ whiteSpace: 'nowrap' }}>
+                          {date(income.occurredOn)}
+                        </td>
+                        <td data-label={t('tx.col.category')}>
+                          <span className="badge badge-success">{income.fromSalary ? t('income.salaryBadge') : t('add.income')}</span>
+                        </td>
+                        <td data-label={t('tx.col.note')}>{income.note || t('income.untitled')}</td>
+                        <td data-label={t('tx.col.method')}>{income.sourceName}</td>
+                        <td data-label={t('tx.col.amount')} className="text-right amount text-success">
+                          +{money(income.amount)}
+                        </td>
+                        <td data-label={t('tx.col.status')}>
+                          <span className="badge badge-success">{t('tx.status.posted')}</span>
+                        </td>
+                        <td>
+                          <div className="row-actions">
+                            {!income.fromSalary && (
+                              <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => void handleDeleteIncome(income)}>
+                                {t('tx.delete')}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const transaction = row.transaction;
                   const category = categoryById.get(transaction.categoryId);
                   const source = transaction.sourceId ? sourceById.get(transaction.sourceId) : undefined;
                   const methodText =
@@ -308,7 +378,39 @@ export function TransaksiPage() {
 
           {/* Phones show the same rows as a list of cards: the table would need horizontal room they don't have. */}
           <div className="tx-list">
-            {pageOf(transactions, paging.page, TX_PAGE_SIZE).map((transaction) => {
+            {pageOf(rows, paging.page, TX_PAGE_SIZE).map((row) => {
+              if (row.kind === 'income') {
+                const { income } = row;
+                return (
+                  <article key={row.key} className="tx-item recent-tile">
+                    <span className="cat-badge">
+                      <Icon name="wallet" size={16} />
+                    </span>
+                    <div className="tx-item-main">
+                      <div className="tx-item-top">
+                        <strong className="tx-item-title">{income.note || t('income.untitled')}</strong>
+                        <span className="tx-item-amount text-success">+{money(income.amount)}</span>
+                      </div>
+                      <span className="tx-item-meta">
+                        {date(income.occurredOn)} · {income.sourceName}
+                      </span>
+                      <div className="tx-item-foot">
+                        <span className="tx-item-chips">
+                          <span className="badge badge-success">{income.fromSalary ? t('income.salaryBadge') : t('add.income')}</span>
+                        </span>
+                        <span className="tx-item-actions">
+                          {!income.fromSalary && (
+                            <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft text-danger" onClick={() => void handleDeleteIncome(income)} aria-label={t('tx.delete')} title={t('tx.delete')}>
+                              <Icon name="trash" size={15} />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+              const transaction = row.transaction;
               const category = categoryById.get(transaction.categoryId);
               const source = transaction.sourceId ? sourceById.get(transaction.sourceId) : undefined;
               const methodText = source ? `${t(METHOD_KEYS[transaction.method])} · ${source.name}` : t(METHOD_KEYS[transaction.method]);
@@ -353,7 +455,7 @@ export function TransaksiPage() {
             })}
           </div>
 
-          <Pager page={paging.page} pages={paging.pages} count={transactions.length} onPage={paging.setPage} />
+          <Pager page={paging.page} pages={paging.pages} count={rows.length} onPage={paging.setPage} />
         </>
       )}
 

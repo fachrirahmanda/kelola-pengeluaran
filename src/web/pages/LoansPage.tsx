@@ -2,13 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiRequestError } from '../api';
 import { DatePicker } from '../components/DatePicker';
 import { Dropdown } from '../components/Dropdown';
-import { SkeletonRows } from '../components/Skeleton';
+import { SkeletonForm, SkeletonRows } from '../components/Skeleton';
 import { DebitSourceField } from '../components/DebitSourceField';
 import { Icon } from '../components/Icon';
 import { SidePanel, usePhone } from '../components/SidePanel';
 import { useCategories } from '../data';
 import { todayInWib } from '../format';
+import type { MessageKey } from '../i18n';
 import { usePrefs } from '../prefs';
+import { AddRecurringForm, InstallmentsSection } from './RecurringPage';
 
 // Loans (pinjaman): money received is a loan, not spending. Each repayment is recorded as an expense on
 // the day it is paid, and the remaining balance goes down.
@@ -33,7 +35,7 @@ interface Loan {
 }
 
 const toAmount = (text: string) => Number(text.replace(/\D/g, '')) || 0;
-const METHOD_KEYS = ['cash', 'debit', 'transfer'] as const;
+const METHOD_KEYS = ['debit', 'transfer'] as const;
 
 export function LoansPage() {
   const { t } = usePrefs();
@@ -62,7 +64,7 @@ export function LoansPage() {
         {phone && (
           <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
             <Icon name="plus" size={16} />
-            {t('loans.add')}
+            {t('add.debt')}
           </button>
         )}
       </div>
@@ -98,9 +100,11 @@ export function LoansPage() {
         )}
       </section>
 
-      <SidePanel open={adding} onClose={() => setAdding(false)} title={t('loans.newTitle')}>
-        <AddLoanForm
-          onAdded={() => {
+      <InstallmentsSection />
+
+      <SidePanel open={adding} onClose={() => setAdding(false)} title={t('add.debt')}>
+        <DebtForm
+          onSaved={() => {
             setAdding(false);
             load();
           }}
@@ -112,7 +116,45 @@ export function LoansPage() {
 }
 
 /** A new loan: its name, how much was received, and when. */
-function AddLoanForm({ onAdded, onError }: { onAdded: () => void; onError: (message: string) => void }) {
+type DebtKind = 'installment' | 'loan';
+const DEBT_KINDS: { value: DebtKind; label: MessageKey }[] = [
+  { value: 'installment', label: 'debt.installments' },
+  { value: 'loan', label: 'debt.single' },
+];
+
+/** An installment or a loan in one form: a Type choice, then the form for that kind. Used on the Loans page and in the Add panel. */
+export function DebtForm({ onSaved, onError }: { onSaved: () => void; onError: (message: string) => void }) {
+  const { t, categoryName } = usePrefs();
+  const { categories } = useCategories();
+  const [kind, setKind] = useState<DebtKind>('installment');
+  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
+
+  return (
+    <>
+      <div className="debt-kind tx-field">
+        <span className="tx-field-label">{t('add.debtKind')}</span>
+        <Dropdown value={kind} options={DEBT_KINDS.map((item) => ({ value: item.value, label: t(item.label) }))} onChange={(value) => setKind(value as DebtKind)} ariaLabel={t('add.debtKind')} />
+      </div>
+      {kind === 'loan' ? (
+        <AddLoanForm onAdded={onSaved} onError={onError} />
+      ) : categories ? (
+        <AddRecurringForm
+          categoryOptions={categoryOptions}
+          defaultCategoryId={categories[0]?.id ?? ''}
+          onCreated={(name) => {
+            window.DS?.toast(t('rec.created', { name }), { variant: 'success' });
+            onSaved();
+          }}
+          onError={onError}
+        />
+      ) : (
+        <SkeletonForm />
+      )}
+    </>
+  );
+}
+
+export function AddLoanForm({ onAdded, onError }: { onAdded: () => void; onError: (message: string) => void }) {
   const { t, money } = usePrefs();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');

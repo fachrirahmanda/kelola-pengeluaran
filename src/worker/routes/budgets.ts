@@ -24,7 +24,7 @@ async function changesOf(env: Env, userId: string) {
 async function spendingOf(env: Env, userId: string, first: string, last: string) {
   const { results } = await env.DB.prepare(
     `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total FROM transactions
-     WHERE user_id = ? AND status = 'posted' AND posted_on >= ? AND posted_on < ? GROUP BY month, category_id`,
+     WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? AND posted_on < ? GROUP BY month, category_id`,
   )
     .bind(userId, `${first}-01`, `${addMonths(last, 1)}-01`)
     .all<{ month: string; category_id: string; total: number }>();

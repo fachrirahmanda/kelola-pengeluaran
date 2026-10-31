@@ -6,7 +6,7 @@ import { debitSourceOf } from './sources';
 // expense transaction on the day it is paid, and the remaining balance is the principal minus the
 // repayments that are still on record.
 
-const PAYMENT_METHODS = ['cash', 'debit', 'transfer'];
+const PAYMENT_METHODS = ['debit', 'transfer'];
 const isDate = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 /** GET /api/loans */
@@ -87,7 +87,7 @@ export async function payLoan({ request, env, userId, params }: RouteContext) {
 
   const category = await env.DB.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(body.categoryId, userId).first();
   if (!category) throw new HttpError(404, 'Kategori tidak ditemukan');
-  // Debit comes from a savings account, which is required; cash and transfer have none.
+  // Debit comes from a savings account, which is required; transfer has none.
   const sourceId = body.method === 'debit' ? (await debitSourceOf(env.DB, userId, body.sourceId, amount)).id : null;
 
   const transactionId = crypto.randomUUID();

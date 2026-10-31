@@ -91,16 +91,18 @@ export function SalarySection({ sources, onChanged }: { sources: PaymentSource[]
                   <SalaryEditor initial={salary} savings={savings} onSave={(input) => save(input, salary.id)} onCancel={() => setEditingId(null)} />
                 </div>
               ) : (
-                <div key={salary.id} className="list-row">
-                  <BankBadge bankId={savings.find((source) => source.id === salary.sourceId)?.bank} size={32} />
-                  <div className="source-main grow">
+                <div key={salary.id} className="list-row salary-row">
+                  <span className="salary-row-badge">
+                    <BankBadge bankId={savings.find((source) => source.id === salary.sourceId)?.bank} size={32} />
+                  </span>
+                  <div className="source-main grow salary-row-main">
                     <span className="source-name">{salary.name}</span>
                     <span className="source-meta">
                       {t('salary.line', { name: salary.sourceName, day: salary.payDay })} · {t('salary.next', { date: date(salary.nextPayDate) })}
                     </span>
                   </div>
-                  <span className="amount text-success">+{money(salary.amount)}</span>
-                  <div className="row-actions">
+                  <span className="amount text-success salary-row-amount">+{money(salary.amount)}</span>
+                  <div className="row-actions salary-row-actions">
                     <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => setEditingId(salary.id)} aria-label={t('cat.edit')} title={t('cat.edit')}>
                       <Icon name="edit" size={15} />
                     </button>
@@ -149,30 +151,30 @@ function SalaryEditor({ initial, savings, onSave, onCancel }: { initial?: Salary
 
   return (
     <form className="stack-lg" onSubmit={(event) => void submit(event)} noValidate>
-      <div className="tx-grid">
-        <label className="tx-field">
-          <span className="tx-field-label">{t('salary.name')}</span>
-          <input className="input" value={name} maxLength={40} onChange={(event) => setName(event.target.value)} required />
-        </label>
-        <label className="tx-field">
-          <span className="tx-field-label">{t('salary.amount')}</span>
-          <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, '').slice(0, 13))} required />
-        </label>
-        <div className="tx-field">
-          <span className="tx-field-label">{t('salary.account')}</span>
-          <Dropdown
-            value={sourceId}
-            options={savings.map((source) => ({ value: source.id, label: `${source.name} · ${money(source.balance ?? 0)}`, icon: <BankBadge bankId={source.bank} size={20} /> }))}
-            onChange={setSourceId}
-            ariaLabel={t('salary.account')}
-          />
-        </div>
-        <label className="tx-field">
-          <span className="tx-field-label">{t('salary.payDay')}</span>
-          <input type="number" inputMode="numeric" min={1} max={31} className="input" value={payDay} onChange={(event) => setPayDay(event.target.value)} required />
-          <span className="tx-hint">{t('salary.payDayHint')}</span>
-        </label>
+      <label className="tx-field">
+        <span className="tx-field-label">{t('salary.name')}</span>
+        <input className="input" value={name} maxLength={40} onChange={(event) => setName(event.target.value)} required />
+      </label>
+      <label className="tx-field">
+        <span className="tx-field-label">{t('salary.amount')}</span>
+        <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, '').slice(0, 13))} required />
+        {amount && <span className="tx-hint">{money(Number(amount))}</span>}
+      </label>
+      <div className="tx-field">
+        <span className="tx-field-label">{t('salary.account')}</span>
+        <Dropdown
+          value={sourceId}
+          options={savings.map((source) => ({ value: source.id, label: `${source.name} · ${money(source.balance ?? 0)}`, icon: <BankBadge bankId={source.bank} size={20} /> }))}
+          onChange={setSourceId}
+          ariaLabel={t('salary.account')}
+        />
       </div>
+      <label className="tx-field">
+        <span className="tx-field-label">{t('salary.payDay')}</span>
+        <input type="number" inputMode="numeric" min={1} max={31} className="input" value={payDay} onChange={(event) => setPayDay(event.target.value)} required />
+        <span className="tx-hint">{t('salary.payDayHint')}</span>
+      </label>
+
       {!initial && <p className="tx-hint">{t('salary.startHint')}</p>}
       {error && (
         <p className="text-danger" role="alert">
@@ -183,7 +185,7 @@ function SalaryEditor({ initial, savings, onSave, onCancel }: { initial?: Salary
         <button type="button" className="btn" onClick={onCancel}>
           {t('common.cancel')}
         </button>
-        <button type="submit" className="btn btn-primary" disabled={saving || !valid}>
+        <button type="submit" className="btn btn-primary btn-lg" disabled={saving || !valid}>
           {saving ? t('form.saving') : t('form.save')}
         </button>
       </div>

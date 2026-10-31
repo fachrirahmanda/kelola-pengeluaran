@@ -1,3 +1,4 @@
+import { BanksSection } from '../components/BanksSection';
 import { useSearchParams } from 'react-router';
 import { useAuth } from '../auth';
 import { AiSection } from '../components/AiSection';
@@ -17,6 +18,7 @@ export function SettingsPage() {
 
   const tabs = [
     { id: 'categories', label: t('settings.tabCategories') },
+    { id: 'banks', label: t('settings.tabBanks') },
     { id: 'workspace', label: t('settings.tabWorkspace') },
     ...(isAdmin ? [{ id: 'storage', label: t('settings.tabStorage') }, { id: 'ai', label: t('ai.title') }] : []),
   ];
@@ -41,6 +43,7 @@ export function SettingsPage() {
       </div>
 
       {tab === 'categories' && <CategoriesSection />}
+      {tab === 'banks' && <BanksSection />}
       {tab === 'workspace' && <WorkspaceSection />}
       {tab === 'storage' && isAdmin && <DriveSection />}
       {tab === 'ai' && isAdmin && <AiSection />}

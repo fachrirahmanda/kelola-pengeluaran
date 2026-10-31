@@ -4191,6 +4191,11 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   }
 }
 
+/* The Add panel's tabs (Expense, Income, Installment, Loan) keep air above the form below them. */
+.side-panel-scope .add-tabs {
+  margin-bottom: 22px;
+}
+
 /* Add expense in the side panel: a large amount, method as a segmented control, rounded category tiles and a
    full-width save button. Scoped to the panel, so History's edit form keeps its own look. */
 .side-panel-scope .tx-form {
@@ -4509,4 +4514,204 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 .source-card .holder-avatar {
   background: rgb(255 255 255 / 0.9);
   color: #18181b;
+}
+
+/* The Add panel's installment or loan choice: a dropdown above its form. */
+.side-panel-scope .debt-kind {
+  margin-bottom: 22px;
+}
+
+/* Sources as bank cards: the proportions of a real debit or credit card (85.6 x 54 mm). The face shows only the
+   name, the kind, one figure and the actions. */
+.source-slot > .source-card:not(.source-card-wide) {
+  width: 100%;
+  aspect-ratio: 85.6 / 53.98;
+  min-height: 0;
+  border-radius: 16px;
+}
+
+.source-card:not(.source-card-wide) > .card-body {
+  justify-content: space-between;
+  gap: 0;
+  padding: 16px 18px;
+}
+
+.source-card-name {
+  font-size: 15px;
+}
+
+.source-card-kind {
+  flex: none;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0.72;
+}
+
+.source-card-amount {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The owner (or "Shared") sits at the bottom left, and the actions sit at the bottom right with room between them. */
+.source-card .source-actions {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.source-card-holder {
+  margin-right: auto;
+}
+
+/* Delete on a card: a soft red round button, so it reads as destructive on any bank colour. */
+.source-card .source-actions .icon-btn-soft.text-danger {
+  background: rgb(248 113 113 / 0.28);
+  color: #ffffff;
+  opacity: 1;
+}
+
+.source-card .source-actions .icon-btn-soft.text-danger:hover {
+  background: rgb(248 113 113 / 0.42);
+}
+
+/* On a card whose bill has reached its billing date: a small light button to that card's bills. */
+.source-card-bills {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-right: auto;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  color: #18181b;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.source-card-bills:hover {
+  background: #ffffff;
+}
+
+/* A card and what sits under it (its due warning), as one slider item. */
+.source-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.source-card-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-due-warning {
+  margin: 0;
+  padding-left: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+/* The holder filter (All, each person, Shared) is one row that scrolls sideways on a phone, instead of wrapping. */
+.holder-filter {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.holder-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.holder-filter > * {
+  flex: none;
+}
+
+/* A salary row: the bank, the name and details, then the amount and the actions. On a phone the details take the full
+   width, and the amount and actions sit on the line below, at the right. */
+.salary-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.salary-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.salary-row-badge {
+  flex: none;
+}
+
+@media (max-width: 1023px) {
+  .salary-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'badge main main'
+      'badge amount actions';
+    align-items: center;
+    gap: 6px 12px;
+  }
+
+  .salary-row-badge {
+    grid-area: badge;
+    align-self: start;
+  }
+
+  .salary-row-main {
+    grid-area: main;
+  }
+
+  .salary-row-amount {
+    grid-area: amount;
+  }
+
+  .salary-row-actions {
+    grid-area: actions;
+  }
+}
+
+/* The holder filter bleeds to the screen edges, like the card slider, so a pill scrolled off the side is cut by the
+   screen edge, not by the page's padding. */
+.holder-filter {
+  margin-inline: calc(var(--gutter, 16px) * -1);
+  padding-inline: var(--gutter, 16px);
+  scroll-padding-inline: var(--gutter, 16px);
+}
+
+
+/* The colour of a bank: a round swatch, and its hex code beside it. */
+.bank-color-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bank-color-swatch {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  appearance: none;
+}
+
+.bank-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.bank-color-swatch::-webkit-color-swatch {
+  border: 2px solid var(--separator);
+  border-radius: 50%;
+}
+
+.bank-color-swatch::-moz-color-swatch {
+  border: 2px solid var(--separator);
+  border-radius: 50%;
 }

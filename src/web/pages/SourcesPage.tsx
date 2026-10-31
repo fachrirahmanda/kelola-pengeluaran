@@ -1,15 +1,18 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { BankBadge } from '../components/BankBadge';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
-import { IncomeSection } from '../components/IncomeSection';
+import { SidePanel, usePhone } from '../components/SidePanel';
 import { SalarySection } from '../components/SalarySection';
 import { SkeletonRows } from '../components/Skeleton';
 import { useAuth } from '../auth';
-import { useSources } from '../data';
+import { useBills, useSources } from '../data';
+import { todayInWib } from '../format';
 import { initialsOf } from '../components/Notifications';
-import { BANKS, bankById } from '../../shared/banks';
+import { bankKinds, type Bank } from '../../shared/banks';
+import { useBankList } from '../banks';
 import { usePrefs } from '../prefs';
 import type { MessageKey } from '../i18n';
 import { SOURCE_KINDS, isBilledKind, type PaymentSource, type SourceHolder, type SourceKind } from '../../shared/types';
@@ -25,7 +28,7 @@ const KIND_KEYS: Record<SourceKind, MessageKey> = {
 interface SourceInput {
   name: string;
   kind: SourceKind;
-  closingDay: number | null;
+  billingDay: number | null;
   paymentDay: number | null;
   openingBalance: number;
   creditLimit: number | null;
@@ -51,6 +54,18 @@ const holderName = (holder: SourceHolder) => holder.name || holder.email;
 export function SourcesPage() {
   const { t } = usePrefs();
   const { sources, holders, reload } = useSources();
+  const { bills } = useBills();
+  // A card's bill state: unpaid once its billing date has come and it is still open (with its due date), paid
+  // when its last bill was paid. Cards with no bill yet have none.
+  const today = todayInWib();
+  const billStates = new Map<string, BillState>();
+  for (const bill of bills?.paid ?? []) billStates.set(bill.sourceId, { status: 'paid' });
+  for (const bill of bills?.open ?? []) {
+    if (bill.billingOn > today) continue;
+    const earliest = billStates.get(bill.sourceId);
+    const dueOn = earliest?.status === 'unpaid' && earliest.dueOn < bill.dueOn ? earliest.dueOn : bill.dueOn;
+    billStates.set(bill.sourceId, { status: 'unpaid', dueOn });
+  }
   const [filter, setFilter] = useState<HolderFilter>('all');
   // A filter for someone who is no longer in the data set falls back to everyone.
   const activeFilter = filter === 'all' || filter === 'shared' || holders.some((holder) => holder.userId === filter) ? filter : 'all';
@@ -58,29 +73,48 @@ export function SourcesPage() {
     sources === null || activeFilter === 'all'
       ? sources
       : sources.filter((source) => (activeFilter === 'shared' ? !source.holderId : source.holderId === activeFilter));
-  const [incomeId, setIncomeId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Add and edit open one side panel (New transaction's pattern): the popup on phones, the column on the right on desktop.
+  const phone = usePhone();
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editing, setEditing] = useState<PaymentSource | null>(null);
   const [createKey, setCreateKey] = useState(0);
   const [error, setError] = useState('');
+
+  function openAdd() {
+    setEditing(null);
+    setPanelOpen(true);
+  }
+
+  function openEdit(source: PaymentSource) {
+    setEditing(source);
+    setPanelOpen(true);
+  }
+
+  // Closing returns the panel to Add, so the next open (and the desktop column) shows the add form again.
+  function closePanel() {
+    setPanelOpen(false);
+    setEditing(null);
+  }
 
   async function create(input: SourceInput) {
     await api.post('/sources', input);
     window.DS?.toast(t('settings.added', { name: input.name }), { variant: 'success' });
     setCreateKey((key) => key + 1);
+    closePanel();
     await reload();
   }
 
   async function update(source: PaymentSource, input: SourceInput) {
     await api.patch(`/sources/${source.id}`, {
       name: input.name,
-      closingDay: input.closingDay,
+      billingDay: input.billingDay,
       paymentDay: input.paymentDay,
       openingBalance: input.openingBalance,
       creditLimit: input.creditLimit,
       bank: input.bank,
       holderId: input.holderId,
     });
-    setEditingId(null);
+    closePanel();
     window.DS?.toast(t('settings.updated'), { variant: 'success' });
     await reload();
   }
@@ -104,6 +138,12 @@ export function SourcesPage() {
           <h2>{t('settings.sources')}</h2>
           <p className="hint">{t('settings.sourcesHint')}</p>
         </div>
+        {phone && (
+          <button type="button" className="btn btn-primary" onClick={openAdd}>
+            <Icon name="plus" size={16} />
+            {t('settings.create')}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -129,33 +169,24 @@ export function SourcesPage() {
             </button>
           </div>
         )}
-        <SourceCards
-          sources={shown}
-          holders={holders}
-          filtered={activeFilter !== 'all'}
-          editingId={editingId}
-          onEdit={setEditingId}
-          onIncome={setIncomeId}
-          onRemove={(source) => void remove(source)}
-          onSave={(source, input) => update(source, input)}
-          onCancel={() => setEditingId(null)}
-        />
-
-        <div className="card" style={{ marginTop: 'var(--space-4)' }}>
-          <div className="card-body">
-            <h3 className="card-title">{t('settings.addTitle')}</h3>
-            <SourceEditor
-              key={createKey}
-              holders={holders}
-              defaultHolderId={activeFilter !== 'all' && activeFilter !== 'shared' ? activeFilter : undefined}
-              submitLabel={t('settings.create')}
-              onSave={create}
-            />
-          </div>
-        </div>
+        <SourceCards sources={shown} holders={holders} filtered={activeFilter !== 'all'} billStates={billStates} onEdit={openEdit} onRemove={(source) => void remove(source)} />
       </section>
 
-      <IncomeSection sources={sources} addFor={incomeId} onAddFor={setIncomeId} onChanged={() => void reload()} />
+      <SidePanel open={panelOpen} onClose={closePanel} title={editing ? t('cat.edit') : t('settings.addTitle')}>
+        {editing ? (
+          <SourceEditor key={editing.id} initial={editing} holders={holders} submitLabel={t('form.save')} onSave={(input) => update(editing, input)} onCancel={closePanel} />
+        ) : (
+          <SourceEditor
+            key={createKey}
+            holders={holders}
+            defaultHolderId={activeFilter !== 'all' && activeFilter !== 'shared' ? activeFilter : undefined}
+            submitLabel={t('settings.create')}
+            onSave={create}
+            onCancel={phone ? closePanel : undefined}
+          />
+        )}
+      </SidePanel>
+
 
       <SalarySection sources={sources} onChanged={() => void reload()} />
     </>
@@ -183,11 +214,20 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
   const holderId = pickedHolderId ?? (holders.some((holder) => holder.userId === preferred) ? preferred! : '');
   const [name, setName] = useState(initial?.name ?? '');
   const [kind, setKind] = useState<SourceKind>(initial?.kind ?? 'savings');
-  const [closingDay, setClosingDay] = useState(initial?.closingDay ? String(initial.closingDay) : '');
+  const [billingDay, setBillingDay] = useState(initial?.billingDay ? String(initial.billingDay) : '');
   const [paymentDay, setPaymentDay] = useState(initial?.paymentDay ? String(initial.paymentDay) : '');
   const [openingBalance, setOpeningBalance] = useState(initial?.openingBalance ? String(initial.openingBalance) : '');
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit ? String(initial.creditLimit) : '');
   const [bank, setBank] = useState(initial?.bank ?? '');
+  const { banks } = useBankList();
+  // A bank holds only some kinds of source: the kinds it does not hold are not offered.
+  const selectedBank = banks.find((item) => item.id === bank);
+  const allowedKinds: readonly SourceKind[] = selectedBank ? bankKinds(selectedBank) : SOURCE_KINDS;
+  function chooseBank(id: string) {
+    setBank(id);
+    const next = banks.find((item) => item.id === id);
+    if (next && !bankKinds(next).includes(kind)) setKind(bankKinds(next)[0]);
+  }
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -200,7 +240,7 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
       holderId: holderId || null,
       name: name.trim(),
       kind,
-      closingDay: billed ? Number(closingDay) : null,
+      billingDay: billed ? Number(billingDay) : null,
       paymentDay: billed ? Number(paymentDay) : null,
       openingBalance: billed ? 0 : Number(openingBalance.replace(/\D/g, '')) || 0,
       creditLimit: billed && creditLimit.replace(/\D/g, '') ? Number(creditLimit.replace(/\D/g, '')) : null,
@@ -225,7 +265,7 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
       <div className="tx-field">
         <span className="tx-field-label">{t('settings.kind')}</span>
         <div className="chip-row" role="radiogroup" aria-label={t('settings.kind')}>
-          {SOURCE_KINDS.map((option) => (
+          {SOURCE_KINDS.filter((option) => !!initial || allowedKinds.includes(option)).map((option) => (
             <button
               key={option}
               type="button"
@@ -233,7 +273,10 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
               aria-checked={kind === option}
               className="pill"
               disabled={!!initial}
-              onClick={() => setKind(option)}
+              onClick={() => {
+                setKind(option);
+                if (selectedBank && !bankKinds(selectedBank).includes(option)) setBank('');
+              }}
             >
               {t(KIND_KEYS[option])}
             </button>
@@ -262,8 +305,8 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
         <span className="tx-field-label">{t('settings.bank')}</span>
         <Dropdown
           value={bank}
-          options={[{ value: '', label: t('settings.noBank') }, ...BANKS.map((option) => ({ value: option.id, label: option.name, icon: <BankBadge bankId={option.id} size={22} /> }))]}
-          onChange={setBank}
+          options={[{ value: '', label: t('settings.noBank') }, ...banks.filter((option) => bankKinds(option).includes(kind)).map((option) => ({ value: option.id, label: option.name, icon: <BankBadge bankId={option.id} size={22} /> }))]}
+          onChange={chooseBank}
           ariaLabel={t('settings.bank')}
           searchable
         />
@@ -285,18 +328,18 @@ function SourceEditor({ initial, holders, defaultHolderId, submitLabel, onSave, 
       {isBilledKind(kind) && (
         <div className="tx-grid">
           <label className="tx-field">
-            <span className="tx-field-label">{t('settings.closingDay')}</span>
+            <span className="tx-field-label">{t('settings.billingDay')}</span>
             <input
               type="number"
               inputMode="numeric"
-              min={1}
+              min={3}
               max={28}
               className="input"
-              value={closingDay}
-              onChange={(event) => setClosingDay(event.target.value)}
+              value={billingDay}
+              onChange={(event) => setBillingDay(event.target.value)}
               required
             />
-            <span className="tx-hint">{t('settings.dayRange')}</span>
+            <span className="tx-hint">{t('settings.billingHint')}</span>
           </label>
           <label className="tx-field">
             <span className="tx-field-label">{t('settings.paymentDay')}</span>
@@ -340,23 +383,24 @@ interface SourceCardsProps {
   holders: SourceHolder[];
   /** Whether a holder filter is on, for the empty message. */
   filtered: boolean;
-  editingId: string | null;
-  onEdit: (id: string | null) => void;
-  onIncome: (id: string) => void;
+  /** Each card's bill state (see billStates on the page). */
+  billStates: Map<string, BillState>;
+  onEdit: (source: PaymentSource) => void;
   onRemove: (source: PaymentSource) => void;
-  onSave: (source: PaymentSource, input: SourceInput) => Promise<void>;
-  onCancel: () => void;
 }
 
 /** The bank colours the card face: a wallet card in the bank's colour, a neutral one for cash. */
-function cardColours(bankId: string | null | undefined): CSSProperties {
-  const bank = bankById(bankId);
+function cardColours(bank: Bank | undefined): CSSProperties {
   return { '--bank-color': bank?.color ?? '#3f3f46', '--bank-text': bank?.textColor ?? '#ffffff' } as CSSProperties;
 }
 
 /** The sources as cards: the bank badge, the balance or the limit, and the actions. One card opens for editing. */
-function SourceCards({ sources, holders, filtered, editingId, onEdit, onIncome, onRemove, onSave, onCancel }: SourceCardsProps) {
-  const { t, money } = usePrefs();
+/** A card's bill: paid, or unpaid with the date it is due. */
+type BillState = { status: 'paid' } | { status: 'unpaid'; dueOn: string };
+
+function SourceCards({ sources, holders, filtered, billStates, onEdit, onRemove }: SourceCardsProps) {
+  const { t, money, date } = usePrefs();
+  const { banks } = useBankList();
   if (sources === null) return <SkeletonRows count={2} />;
   if (sources.length === 0) {
     return (
@@ -369,65 +413,48 @@ function SourceCards({ sources, holders, filtered, editingId, onEdit, onIncome, 
     <div className="source-grid">
       {sources.map((source) => {
         const holder = holders.find((person) => person.userId === source.holderId);
-        return editingId === source.id ? (
-          <div key={source.id} className="card source-card source-card-wide">
+        const state = billStates.get(source.id);
+        // The card's one figure: the balance, what is left of a credit limit, or what is owed.
+        const figure = source.kind === 'savings' ? (source.balance ?? 0) : source.creditLimit ? source.creditLimit - (source.owed ?? 0) : (source.owed ?? 0);
+        const label = source.kind === 'savings' ? t('settings.balanceLabel') : source.creditLimit ? t('settings.availableLabel') : t('settings.unpaidLabel');
+        return (
+          <div key={source.id} className="source-slot">
+          <article className="card source-card" style={cardColours(banks.find((item) => item.id === source.bank))}>
             <div className="card-body">
-              <SourceEditor initial={source} holders={holders} submitLabel={t('form.save')} onSave={(input) => onSave(source, input)} onCancel={onCancel} />
-            </div>
-          </div>
-        ) : (
-          <article key={source.id} className="card source-card" style={cardColours(source.bank)}>
-            <div className="card-body stack">
               <div className="source-card-head">
                 <BankBadge bankId={source.bank} />
-                <div className="grow source-card-title">
-                  <strong className="truncate">{source.name}</strong>
-                  <span className="text-sm text-muted">
-                    {t(KIND_KEYS[source.kind])}
-                    {isBilledKind(source.kind) && source.closingDay && source.paymentDay
-                      ? ` · ${t('settings.days', { closing: source.closingDay, payment: source.paymentDay })}`
-                      : ''}
-                  </span>
-                </div>
+                <strong className="grow truncate source-card-name">{source.name}</strong>
+                <span className="source-card-kind">{t(KIND_KEYS[source.kind])}</span>
               </div>
 
-              {holders.length > 1 && (
-                <span className="source-holder text-sm">
-                  {holder ? <HolderAvatar holder={holder} size={20} /> : <Icon name="users" size={14} />}
-                  <span className="truncate">{holder ? holderName(holder) : t('holder.shared')}</span>
+              <div className="source-card-amount">
+                <span className="source-card-label">
+                  <span className="text-sm text-muted">{label}</span>
+                  {state && <span className={`badge ${state.status === 'unpaid' ? 'badge-warning' : 'badge-success'}`}>{t(state.status === 'unpaid' ? 'settings.billUnpaid' : 'settings.billPaid')}</span>}
                 </span>
-              )}
-
-              {source.kind === 'savings' ? (
-                <div>
-                  <span className="text-sm text-muted">{t('settings.balanceLabel')}</span>
-                  <strong className="source-amount">{money(source.balance ?? 0)}</strong>
-                </div>
-              ) : source.creditLimit ? (
-                <div className="stack">
-                  <div>
-                    <span className="text-sm text-muted">{t('settings.availableLabel')}</span>
-                    <strong className="source-amount">{money(source.creditLimit - (source.owed ?? 0))}</strong>
-                  </div>
-                  <div className="bar-track" role="img" aria-label={t('settings.unpaidOfLimit', { owed: money(source.owed ?? 0), limit: money(source.creditLimit) })}>
-                    <span className="bar-fill" style={{ width: `${Math.min(100, ((source.owed ?? 0) / source.creditLimit) * 100)}%`, background: 'var(--accent)' }} />
-                  </div>
-                  <span className="text-sm text-muted">{t('settings.unpaidOfLimit', { owed: money(source.owed ?? 0), limit: money(source.creditLimit) })}</span>
-                </div>
-              ) : (
-                <div>
-                  <span className="text-sm text-muted">{t('settings.unpaidLabel')}</span>
-                  <strong className="source-amount">{money(source.owed ?? 0)}</strong>
-                </div>
-              )}
+                <strong className="source-amount">{money(figure)}</strong>
+                {source.kind !== 'savings' && source.creditLimit ? <span className="text-sm text-muted">{`${t('settings.creditLimit')}: ${money(source.creditLimit)}`}</span> : null}
+              </div>
 
               <div className="source-actions">
-                {source.kind === 'savings' && (
-                  <button type="button" className="icon-btn icon-btn-sm icon-btn-plain" onClick={() => onIncome(source.id)} aria-label={t('income.add')} title={t('income.add')}>
-                    <Icon name="plus" size={15} />
-                  </button>
+                {holders.length > 1 &&
+                  (holder ? (
+                    <span className="source-card-holder" title={holderName(holder)}>
+                      <HolderAvatar holder={holder} size={24} />
+                    </span>
+                  ) : (
+                    <span className="source-card-holder" title={t('holder.shared')}>
+                      <span className="ws-avatar holder-avatar" style={{ width: 24, height: 24 }} aria-hidden="true">
+                        <Icon name="users" size={13} />
+                      </span>
+                    </span>
+                  ))}
+                {state?.status === 'unpaid' && (
+                  <Link to={`/bills?source=${source.id}`} className="source-card-bills">
+                    {t('settings.viewBills')}
+                  </Link>
                 )}
-                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => onEdit(source.id)} aria-label={t('cat.edit')} title={t('cat.edit')}>
+                <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={() => onEdit(source)} aria-label={t('cat.edit')} title={t('cat.edit')}>
                   <Icon name="edit" size={15} />
                 </button>
                 <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft text-danger" onClick={() => onRemove(source)} aria-label={t('cat.delete')} title={t('cat.delete')}>
@@ -436,6 +463,12 @@ function SourceCards({ sources, holders, filtered, editingId, onEdit, onIncome, 
               </div>
             </div>
           </article>
+          {state?.status === 'unpaid' && (
+            <p className="source-due-warning" role="status">
+              {t('settings.dueWarning', { date: date(state.dueOn) })}
+            </p>
+          )}
+          </div>
         );
       })}
     </div>

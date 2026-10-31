@@ -22,12 +22,13 @@ interface TransactionRow {
   note: string;
   method: Method;
   source_id: string | null;
+  to_source_id: string | null;
   status: TransactionStatus;
   posted_on: string | null;
   occurred_time: string | null;
 }
 
-const SELECT_COLUMNS = 'id, occurred_on, occurred_time, amount, category_id, note, method, source_id, status, posted_on';
+const SELECT_COLUMNS = 'id, occurred_on, occurred_time, amount, category_id, note, method, source_id, to_source_id, status, posted_on';
 
 function toTransaction(row: TransactionRow): Transaction {
   return {
@@ -38,6 +39,7 @@ function toTransaction(row: TransactionRow): Transaction {
     note: row.note,
     method: row.method,
     sourceId: row.source_id,
+    toSourceId: row.to_source_id,
     status: row.status,
     postedOn: row.posted_on,
     occurredTime: row.occurred_time,
@@ -49,6 +51,22 @@ function isDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * The hidden category transfers are filed under, made the first time one is needed. A visible category the owner
+ * already named "Transfer" is used as it is.
+ */
+export async function transferCategoryOf(db: D1Database, userId: string): Promise<string> {
+  const hidden = await db.prepare("SELECT id FROM categories WHERE user_id = ? AND system = 1 AND name = 'Transfer'").bind(userId).first<{ id: string }>();
+  if (hidden) return hidden.id;
+  await db
+    .prepare("INSERT OR IGNORE INTO categories (id, user_id, name, color, icon, system) VALUES (?, ?, 'Transfer', '#64748b', '⇄', 1)")
+    .bind(crypto.randomUUID(), userId)
+    .run();
+  const row = await db.prepare("SELECT id FROM categories WHERE user_id = ? AND name = 'Transfer'").bind(userId).first<{ id: string }>();
+  if (!row) throw new HttpError(500, 'Kategori transfer tidak bisa dibuat');
+  return row.id;
 }
 
 /**
@@ -70,9 +88,16 @@ async function parseTransaction(db: D1Database, userId: string, body: Record<str
   const note = body.note ?? '';
   if (typeof note !== 'string' || note.trim().length > NOTE_MAX) throw new HttpError(400, `Catatan maksimal ${NOTE_MAX} karakter`);
 
-  if (typeof body.categoryId !== 'string') throw new HttpError(400, 'Pilih kategori');
-  const category = await db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(body.categoryId, userId).first();
-  if (!category) throw new HttpError(400, 'Kategori tidak ditemukan');
+  // A transfer moves money between savings accounts, so it has no category: it is filed under the hidden Transfer one.
+  let categoryId: string;
+  if (method === 'transfer') {
+    categoryId = await transferCategoryOf(db, userId);
+  } else {
+    if (typeof body.categoryId !== 'string') throw new HttpError(400, 'Pilih kategori');
+    const category = await db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(body.categoryId, userId).first();
+    if (!category) throw new HttpError(400, 'Kategori tidak ditemukan');
+    categoryId = body.categoryId;
+  }
 
   // A credit card or paylater source needs the credit method, and the credit method needs one of them.
   // Other methods may name a savings source, or none.
@@ -88,8 +113,19 @@ async function parseTransaction(db: D1Database, userId: string, body: Record<str
     throw new HttpError(400, 'Pilih kartu kredit atau paylater');
   }
 
+  // A transfer moves money from one savings account to another: both are needed, and they must differ.
+  let toSourceId: string | null = null;
+  if (method === 'transfer') {
+    if (!sourceId) throw new HttpError(400, 'Pilih rekening asal transfer');
+    if (typeof body.toSourceId !== 'string' || !body.toSourceId) throw new HttpError(400, 'Pilih rekening tujuan transfer');
+    if (body.toSourceId === sourceId) throw new HttpError(400, 'Rekening asal dan tujuan harus berbeda');
+    const target = await db.prepare("SELECT id FROM payment_sources WHERE id = ? AND user_id = ? AND kind = 'savings'").bind(body.toSourceId, userId).first();
+    if (!target) throw new HttpError(400, 'Transfer hanya bisa ke rekening tabungan');
+    toSourceId = body.toSourceId;
+  }
+
   const occurredTime = typeof body.occurredTime === 'string' && /^([01]d|2[0-3]):[0-5]d$/.test(body.occurredTime) ? body.occurredTime : null;
-  return { occurredOn: body.occurredOn, occurredTime, amount, categoryId: body.categoryId, note: note.trim(), method, sourceId };
+  return { occurredOn: body.occurredOn, occurredTime, amount, categoryId, note: note.trim(), method, sourceId, toSourceId };
 }
 
 /** GET /api/transactions?from=&to=&category=&method=&q= */
@@ -103,7 +139,8 @@ export async function listTransactions({ request, env, userId }: RouteContext) {
 
   if (from && !isDate(from)) throw new HttpError(400, 'Tanggal awal tidak valid');
   if (to && !isDate(to)) throw new HttpError(400, 'Tanggal akhir tidak valid');
-  if (method && !METHODS.includes(method as Method)) throw new HttpError(400, 'Metode bayar tidak valid');
+  // "cards" is debit and credit together: both are shown as Cards in the app.
+  if (method && method !== 'cards' && !METHODS.includes(method as Method)) throw new HttpError(400, 'Metode bayar tidak valid');
 
   const clauses = ['user_id = ?'];
   const binds: (string | number)[] = [userId];
@@ -119,7 +156,9 @@ export async function listTransactions({ request, env, userId }: RouteContext) {
     clauses.push('category_id = ?');
     binds.push(category);
   }
-  if (method) {
+  if (method === 'cards') {
+    clauses.push("method IN ('debit', 'credit')");
+  } else if (method) {
     clauses.push('method = ?');
     binds.push(method);
   }
@@ -176,10 +215,10 @@ export async function createTransaction({ request, env, userId, actorId }: Route
   const id = crypto.randomUUID();
 
   await env.DB.prepare(
-    `INSERT INTO transactions (id, user_id, occurred_on, occurred_time, amount, category_id, note, method, source_id, status, posted_on)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO transactions (id, user_id, occurred_on, occurred_time, amount, category_id, note, method, source_id, to_source_id, status, posted_on)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
-    .bind(id, userId, input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, posting.status, posting.postedOn)
+    .bind(id, userId, input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, input.toSourceId, posting.status, posting.postedOn)
     .run();
   await notifyDataChange(env, userId, actorId, 'data_created', input.amount);
   await recordActivity(env, userId, actorId, 'tx_created', { amount: input.amount, note: input.note });
@@ -213,10 +252,10 @@ export async function updateTransaction({ request, env, userId, actorId, params 
 
   await env.DB.prepare(
     `UPDATE transactions
-     SET occurred_on = ?, occurred_time = ?, amount = ?, category_id = ?, note = ?, method = ?, source_id = ?, status = ?, posted_on = ?, updated_at = datetime('now')
+     SET occurred_on = ?, occurred_time = ?, amount = ?, category_id = ?, note = ?, method = ?, source_id = ?, to_source_id = ?, status = ?, posted_on = ?, updated_at = datetime('now')
      WHERE id = ? AND user_id = ?`,
   )
-    .bind(input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, posting.status, posting.postedOn, params.id, userId)
+    .bind(input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, input.toSourceId, posting.status, posting.postedOn, params.id, userId)
     .run();
 
   await notifyDataChange(env, userId, actorId, 'data_updated', input.amount);

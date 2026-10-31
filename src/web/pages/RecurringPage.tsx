@@ -12,10 +12,8 @@ import { RECURRING_METHODS, type RecurringItem, type RecurringMethod, type Recur
 import type { MessageKey } from '../i18n';
 import { DatePicker } from '../components/DatePicker';
 import { DebitSourceField } from '../components/DebitSourceField';
-import { SidePanel, usePhone } from '../components/SidePanel';
 
 const METHOD_KEYS: Record<RecurringMethod, MessageKey> = {
-  cash: 'rec.method.cash',
   debit: 'rec.method.debit',
   transfer: 'rec.method.transfer',
 };
@@ -23,14 +21,12 @@ const METHOD_KEYS: Record<RecurringMethod, MessageKey> = {
 /** Payment history: how many payments one page shows. */
 const HISTORY_PAGE_SIZE = 10;
 
-export function RecurringPage() {
+/** The installments (cicilan), shown on the Loans page: each plan with its next payment, and the payment history. Adding one is in the Add panel. */
+export function InstallmentsSection() {
   const { t, lang, money, date, categoryName } = usePrefs();
   const { categories } = useCategories();
   const { data, reload } = useRecurring();
   const [error, setError] = useState('');
-  const [adding, setAdding] = useState(false);
-  // On desktop the add panel is always shown beside the list, so the button only exists on phones.
-  const phone = usePhone();
   const history = usePage(data?.payments.length ?? 0, HISTORY_PAGE_SIZE);
 
   const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
@@ -40,19 +36,6 @@ export function RecurringPage() {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h2>{t('rec.title')}</h2>
-          <p className="hint">{t('rec.subtitle')}</p>
-        </div>
-        {phone && (
-          <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
-            <Icon name="plus" size={16} />
-            {t('rec.create')}
-          </button>
-        )}
-      </div>
-
       {error && (
         <p className="text-danger" role="alert">
           {error}
@@ -121,18 +104,6 @@ export function RecurringPage() {
         </div>
       </section>
 
-      <SidePanel open={adding} onClose={() => setAdding(false)} title={t('rec.addTitle')}>
-        <AddRecurringForm
-          categoryOptions={categoryOptions}
-          defaultCategoryId={categories?.[0]?.id ?? ''}
-          onCreated={(name) => {
-            window.DS?.toast(t('rec.created', { name }), { variant: 'success' });
-            setAdding(false);
-            void reload();
-          }}
-          onError={setError}
-        />
-      </SidePanel>
     </>
   );
 }
@@ -147,7 +118,7 @@ function sortedInstallments(items: RecurringItem[], dueIds: Set<string>): Recurr
   return [...items].sort((a, b) => rank(a) - rank(b) || (a.nextDueDate ?? '').localeCompare(b.nextDueDate ?? ''));
 }
 
-function AddRecurringForm({
+export function AddRecurringForm({
   categoryOptions,
   defaultCategoryId,
   onCreated,

@@ -1,3 +1,4 @@
+import { listBanks, createBank, updateBank, deleteBank } from './routes/banks';
 import { Hono } from 'hono';
 import type { Env } from './env';
 import type { RouteContext } from './context';
@@ -5,7 +6,7 @@ import { HttpError } from './http';
 import { readSessionToken, verifySession } from './session';
 import { authConfig, currentUser, devLogin, googleCallback, logout, startGoogle } from './routes/auth';
 import { createSource, deleteSource, listSources, updateSource } from './routes/sources';
-import { listBills, payBill } from './routes/bills';
+import { listBills, payBill, setBillPlan } from './routes/bills';
 import { exportCsv, monthlyReport } from './routes/reports';
 import { askAi, askHistory, clearAskHistory } from './routes/ask';
 import { getAi, removeAi, saveAi, testAi } from './routes/aiSettings';
@@ -43,6 +44,10 @@ const routes: [Method, string, boolean, Handler][] = [
   ['PATCH', '/categories/:id', true, updateCategory],
   ['DELETE', '/categories/:id', true, deleteCategory],
 
+  ['GET', '/banks', true, listBanks],
+  ['POST', '/banks', true, createBank],
+  ['PATCH', '/banks/:id', true, updateBank],
+  ['DELETE', '/banks/:id', true, deleteBank],
   ['GET', '/sources', true, listSources],
   ['POST', '/sources', true, createSource],
   ['PATCH', '/sources/:id', true, updateSource],
@@ -103,6 +108,7 @@ const routes: [Method, string, boolean, Handler][] = [
 
   ['GET', '/bills', true, listBills],
   ['POST', '/bills/pay', true, payBill],
+  ['PUT', '/bills/plan', true, setBillPlan],
 
   ['GET', '/transactions', true, listTransactions],
   ['POST', '/transactions', true, createTransaction],
