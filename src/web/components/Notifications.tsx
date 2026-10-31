@@ -76,8 +76,11 @@ export function linkOf(item: AppNotification): string {
     case 'bill_due':
       return '/bills';
     case 'ask_answered':
+      // Opens at the answer itself; older notifications without its id open at the latest one.
+      return `/ask?answer=${item.data.id ? encodeURIComponent(String(item.data.id)) : 'last'}`;
     case 'ask_failed':
-      return '/ask';
+      // The question is back in the box at the bottom, ready to send again.
+      return '/ask?answer=last';
   }
 }
 
