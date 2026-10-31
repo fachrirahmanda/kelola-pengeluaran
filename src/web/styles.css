@@ -1096,6 +1096,8 @@ select.input,
 
 .bill-card {
   display: grid;
+  /* Rows keep their own height: a card made taller by its neighbour in the grid must not stretch its button. */
+  align-content: start;
   gap: var(--space-3);
   padding: 20px;
   border-radius: var(--radius-xl);
@@ -1620,8 +1622,18 @@ input[type="month"].input {
   box-shadow: none;
 }
 
+/* No focus ring on fields: the field in use shows a slightly darker fill instead of a line around it. */
+.input:focus,
+.input:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .input:focus {
-  box-shadow: 0 0 0 4px var(--focus);
+  background: var(--fill-strong);
 }
 
 .rs__control {
@@ -1635,8 +1647,11 @@ input[type="month"].input {
   box-shadow: none;
 }
 
-.rs__control:focus-visible {
-  box-shadow: 0 0 0 3px var(--focus);
+.rs__control:focus-visible,
+.rs__control--is-focused {
+  outline: none;
+  box-shadow: none;
+  background: var(--fill-strong);
 }
 
 .rs__option--is-focused {
@@ -1910,6 +1925,217 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
+/* Profile head: the photo is the button to change it. A pencil sits on its corner all the time, and on hover
+   (or while uploading) the photo dims with "Change" over it. */
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.profile-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  font-size: 24px;
+}
+
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+
+.profile-avatar:hover .profile-avatar-overlay,
+.profile-avatar:focus-within .profile-avatar-overlay,
+.profile-avatar.is-busy .profile-avatar-overlay {
+  opacity: 1;
+}
+
+.profile-avatar-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+
+.profile-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.profile-who .presence {
+  margin-top: 4px;
+}
+
+.profile-photo-hint .link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile-photo-hint .link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Full name: the field and its Save button on one line. */
+.profile-name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.profile-name-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-name-row .btn {
+  flex-shrink: 0;
+}
+
+/* Active now (green dot) or when last active (grey dot), on Profile and beside workspace members. */
+.presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.presence i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fill-strong);
+}
+
+.presence.is-active {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.presence.is-active i {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent);
+}
+
+/* Sidebar head: notifications beside the collapse button; stacked when the sidebar is collapsed. */
+.sidebar-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ds-app.is-collapsed .sidebar-head-actions {
+  flex-direction: column;
+  gap: 6px;
+}
+
+.notif-btn {
+  position: relative;
+}
+
+.notif-count {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Reset data (Profile): what goes, as a short list in the confirmation. */
+.reset-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.reset-list li + li {
+  margin-top: 4px;
+}
+
+/* Income list: the salary mark beside a name, and the add form above the list. */
+.income-badge {
+  margin-left: 8px;
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.income-form {
+  border-bottom: 1px solid var(--separator);
+}
+
+/* Salary section on the Sources page: the heading and hint on the left, the add button on the right. */
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-head .section-heading,
+.section-head .hint {
+  margin: 0;
+}
+
+/* Ask AI history: a day label between days, and the time under each answer. */
+.ask-day {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.ask-time {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
 .ask-message.is-user p {
   max-width: 80%;
   padding: 10px 14px;
@@ -1980,35 +2206,338 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   font-variant-numeric: tabular-nums;
 }
 
-/* Budgets page: one row per scope, with its limit, progress and the input to change it. */
-.budget-row {
+/* Budgets page: compact tiles, two or three across on a wide screen. Each tile is tinted with its category's
+   colour, like the Home and History lists. Three short lines: name and status, the bar, then the amounts. */
+.budget-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: 8px;
+}
+
+.budget-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--cat-color) 8%, var(--fill));
+}
+
+.budget-item-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--cat-color) 18%, transparent);
+  color: var(--cat-color);
+  font-size: 18px;
+}
+
+.budget-item-main {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--separator);
+  gap: 6px;
+  min-width: 0;
 }
 
-.budget-row:last-child {
-  border-bottom: 0;
-}
-
-.budget-row-head {
+/* The name takes the line and is cut with an ellipsis only when it must; the badge keeps its size. */
+.budget-item-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.budget-item-name {
+  min-width: 0;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+.budget-item-top .badge {
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+.budget-item-track {
+  height: 6px;
+}
+
+/* Spent / budget on the left, what is left on the right. When both do not fit, what is left goes to the next
+   line instead of cutting the amounts. */
+.budget-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 8px;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-item-amount {
+  white-space: nowrap;
+}
+
+.budget-item-amount strong {
+  font-size: var(--text-sm);
+}
+
+.budget-item-left {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* The amount field opens under the tile's content, on one line: the field, Save, close and remove. */
+.budget-item-edit {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--separator);
+}
+
+.budget-item-edit .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Reports side by side above the budgets on a wide screen. */
+.budget-report-grid {
+  margin-bottom: var(--space-4);
+}
+
+/* Add expense: a category near or over its budget says so in its option. */
+.category-option-budget {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+}
+
+/* Budgets: the month switcher beside the title, and the note on a past month. */
+.budget-month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.budget-month-label {
+  min-width: 120px;
+  text-align: center;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.budget-past {
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+/* Spending against budget: bars per month, the month's budget as a dashed line across its bar. A bar near the
+   budget is amber, over it red. */
+.budget-trend-head {
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.budget-row .row-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.budget-trend-scope {
+  min-width: 180px;
 }
 
-.budget-input {
-  max-width: 180px;
+.budget-bar-area {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* The bars take the Reports colours (palette.css). Near and over show in the value above the bar and in the
+   budget line, which turns amber or red. */
+.budget-bar .rep-bar-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.budget-bar.is-near .rep-bar-value {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.budget-bar.is-over .rep-bar-value {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.budget-bar.is-near .budget-bar-limit {
+  border-color: var(--warning);
+  opacity: 1;
+}
+
+.budget-bar.is-over .budget-bar-limit {
+  border-color: var(--danger);
+  opacity: 1;
+}
+
+.budget-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.budget-legend-dot.is-over {
+  background: var(--danger);
+}
+
+.budget-bar-limit {
+  position: absolute;
+  left: 50%;
+  width: min(100%, 52px);
+  transform: translateX(-50%);
+  border-top: 2px dashed var(--text);
+  opacity: 0.7;
+}
+
+.budget-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.budget-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.budget-legend-bar {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--pastel-bar-0, var(--accent));
+}
+
+.budget-legend-line {
+  width: 16px;
+  border-top: 2px dashed var(--text);
+  opacity: 0.7;
+}
+
+/* Change per category: a small table that becomes stacked rows on a phone. */
+.budget-changes {
+  display: flex;
+  flex-direction: column;
+}
+
+.budget-changes-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--separator);
+  font-size: var(--text-sm);
+}
+
+.budget-changes-row:last-child {
+  border-bottom: 0;
+}
+
+.budget-changes-head {
+  padding-top: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.budget-changes-row .cat-name {
+  min-width: 0;
+}
+
+.budget-changes-budget {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.budget-change {
+  display: block;
+  font-size: var(--text-xs);
+}
+
+/* Spending going up is a warning, going down good news. */
+.budget-change.is-up {
+  color: var(--danger);
+}
+
+.budget-change.is-down {
+  color: var(--success);
+}
+
+@media (max-width: 640px) {
+  .budget-changes-head {
+    display: none;
+  }
+
+  .budget-changes-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .budget-changes-row > :nth-child(2) {
+    display: none;
+  }
+}
+
+/* Monthly history: each month is a row that opens it. */
+.budget-history {
+  display: flex;
+  flex-direction: column;
+}
+
+.budget-history-row {
+  width: 100%;
+  gap: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.budget-history-row:last-child {
+  border-bottom: 0;
+}
+
+.budget-history-row .source-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.budget-history-row .source-name {
+  text-transform: capitalize;
+}
+
+.budget-history-row[aria-current='true'] .source-name {
+  font-weight: 700;
+}
+
+.budget-history-row > svg {
+  color: var(--muted);
 }
 
 /* Transaction calendar (components/TransactionCalendar.tsx): a month grid with what was spent each day. */
@@ -2153,19 +2682,13 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 }
 
 /* A bank logo file inside the badge: the logo fits the square, on the surface colour. */
-.bank-badge-logo {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--card-edge);
+/* A bank icon file inside the badge (public/banks/<id>.svg): the round icon fills the badge. */
+.bank-badge-logo,
+.source-card .bank-badge-logo {
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
   overflow: hidden;
-  padding: 4px;
-}
-
-/* A bank logo file inside the badge: the logo fits the square, on the surface colour. */
-.bank-badge-logo {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px var(--card-edge);
-  overflow: hidden;
-  padding: 4px;
 }
 
 .bank-badge-logo img {
@@ -2310,10 +2833,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   box-shadow: none;
 }
 
-.source-card .bank-badge-logo {
-  background: #fff;
-}
-
 .source-card .source-actions {
   margin-top: auto;
   justify-content: flex-end;
@@ -2334,8 +2853,11 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 }
 
 /* The card being edited is a plain form, full width. */
+/* The card being edited: a little wider than a wallet card so the form reads well, but still one card in the
+   slider, never wider than the screen. */
 .source-card.source-card-wide {
-  flex-basis: 100%;
+  flex: 0 0 min(440px, 92%);
+  min-height: 0;
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 0 0 1px var(--card-edge);
@@ -3155,37 +3677,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
-/* Loading screen (Boot.tsx): the bars grow in turn, the same as the preloader in index.html. */
-.boot .bar {
-  transform-box: fill-box;
-  transform-origin: bottom;
-  animation: boot-bar 1.4s ease-in-out infinite;
-}
-
-.boot .bar-2 {
-  animation-delay: 0.18s;
-}
-
-.boot .bar-3 {
-  animation-delay: 0.36s;
-}
-
-@keyframes boot-bar {
-  0%,
-  100% {
-    transform: scaleY(0.45);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .boot .bar {
-    animation: none;
-  }
-}
-
 /* Pager under a long list: previous and next chevrons, and the page number between them. */
 .pager {
   display: flex;
@@ -3587,10 +4078,12 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   margin-top: 4px;
 }
 
-.side-panel-scope .tx-form .form-actions .btn-primary {
+/* Every form in the side panel (Add expense, Add installment, …) ends with the same full-width button, in the
+   app's pill shape like every other button. */
+.side-panel-scope .form-actions .btn-primary {
   width: 100%;
-  height: 50px;
-  border-radius: 14px;
+  height: 46px;
+  border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
 }

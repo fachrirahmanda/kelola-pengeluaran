@@ -6,14 +6,23 @@ import { HttpError } from './http';
 // and model in Settings; the NVIDIA_API_KEY and NVIDIA_MODEL secrets are the fallback.
 
 export const API_BASE = 'https://integrate.api.nvidia.com/v1';
-export const DEFAULT_MODEL = 'meta/llama-3.1-70b-instruct';
-/** Models offered in Settings. The model in use is always listed too, even if it is not here. */
+export const DEFAULT_MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b';
+/**
+ * Models offered in Settings. The model in use is always listed too, even if it is not here. NVIDIA's
+ * model list still names retired models, which answer 404 "Function … Not found for account", so this
+ * list keeps to recent ones.
+ */
 export const MODELS = [
-  'meta/llama-3.1-70b-instruct',
-  'meta/llama-3.2-90b-vision-instruct',
-  'meta/llama-3.2-11b-vision-instruct',
-  'meta/llama-3.1-8b-instruct',
+  'nvidia/nemotron-3.5-lightning-30b-a3b',
+  'openai/gpt-oss-20b',
+  'deepseek-ai/deepseek-v4.1-flash',
+  'z-ai/glm-5.3-flash',
+  'minimaxai/minimax-m3.1-flash',
+  'nvidia/nemotron-3-super-120b-a12b',
+  'moonshotai/kimi-k2.6',
 ];
+/** NVIDIA's free endpoints can queue a request for minutes. Past this, the request is given up. */
+const TIMEOUT_MS = 60_000;
 
 export const AI_INFO = 'nvidia-api-key';
 
@@ -37,22 +46,50 @@ export async function keyAccepted(key: string) {
   return res.ok;
 }
 
+/** NVIDIA's own reason from an error body ({ detail } or { error: { message } }), kept short. */
+function nvidiaDetail(body: string) {
+  try {
+    const data = JSON.parse(body) as { detail?: string; title?: string; error?: { message?: string } | string };
+    const detail = data.detail ?? (typeof data.error === 'string' ? data.error : data.error?.message) ?? data.title;
+    if (detail) return detail.slice(0, 300);
+  } catch {}
+  return body.slice(0, 300) || 'tanpa keterangan';
+}
+
 /**
  * One chat request. Returns the text of the first answer. Failures are logged with NVIDIA's status
- * and message, and the caller gets a short Indonesian message.
+ * and message, and the caller gets a short Indonesian message. No max_tokens is sent, so the model
+ * can think and answer as long as it needs; the timeout is the only limit.
  */
-export async function chat(config: AiConfig, messages: { role: 'system' | 'user'; content: string }[], maxTokens: number) {
-  const res = await fetch(`${API_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${config.key}` },
-    body: JSON.stringify({ model: config.model, messages, temperature: 0.2, max_tokens: maxTokens }),
-  });
-  if (!res.ok) {
-    console.error('nvidia request failed', res.status, await res.text());
-    throw new HttpError(502, 'Ask AI sedang tidak bisa menjawab. Coba lagi.');
+export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${config.key}` },
+      body: JSON.stringify({ model: config.model, messages, temperature: 0.2 }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    console.error('nvidia request did not finish', config.model, err);
+    throw new HttpError(504, `Model ${config.model} terlalu lama menjawab (lebih dari ${TIMEOUT_MS / 1000} detik). Coba model lain.`);
   }
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  const answer = data.choices?.[0]?.message?.content?.trim();
-  if (!answer) throw new HttpError(502, 'Ask AI tidak memberi jawaban. Coba pertanyaan lain.');
+  if (!res.ok) {
+    const body = await res.text();
+    console.error('nvidia request failed', config.model, res.status, body);
+    if (res.status === 404) throw new HttpError(502, `NVIDIA 404 untuk ${config.model}: ${nvidiaDetail(body)}`);
+    if (res.status === 401 || res.status === 403) throw new HttpError(502, 'NVIDIA menolak key ini. Periksa lagi key-nya.');
+    if (res.status === 429) throw new HttpError(502, 'Batas pemakaian NVIDIA tercapai. Coba lagi nanti.');
+    throw new HttpError(502, `Ask AI sedang tidak bisa menjawab (NVIDIA ${res.status}). Coba lagi.`);
+  }
+  const data = (await res.json()) as { choices?: { message?: { content?: string | null }; finish_reason?: string }[] };
+  const choice = data.choices?.[0];
+  const answer = choice?.message?.content?.trim();
+  if (!answer) {
+    console.error('nvidia gave no answer', config.model, choice?.finish_reason);
+    // A reasoning model can spend the whole budget thinking and stop before it writes the answer.
+    if (choice?.finish_reason === 'length') throw new HttpError(502, `Model ${config.model} kehabisan token sebelum menjawab. Coba model lain.`);
+    throw new HttpError(502, 'Ask AI tidak memberi jawaban. Coba pertanyaan lain.');
+  }
   return answer;
 }

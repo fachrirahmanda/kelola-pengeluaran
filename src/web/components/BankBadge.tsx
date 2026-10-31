@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { bankById } from '../../shared/banks';
 
-// The bank or e-wallet as a badge. The logo comes from public/banks/<id>.png when that file exists;
+// The bank or e-wallet as a badge. The icon comes from public/banks/<id>.svg (made by scripts/bank-icons.mjs);
 // otherwise, or if it fails to load, the badge shows the bank's colour and short code. Without a bank
 // (cash, other) it is a neutral badge with a dot.
 
@@ -13,7 +13,7 @@ export function BankBadge({ bankId, size = 40 }: { bankId?: string | null; size?
   if (bank && !logoFailed) {
     return (
       <span className="bank-badge bank-badge-logo" style={style} aria-hidden="true">
-        <img src={`/banks/${bank.id}.png`} alt="" width={size} height={size} onError={() => setLogoFailed(true)} />
+        <img src={`/banks/${bank.id}.svg`} alt="" width={size} height={size} onError={() => setLogoFailed(true)} />
       </span>
     );
   }

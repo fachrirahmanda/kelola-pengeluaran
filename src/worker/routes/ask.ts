@@ -1,4 +1,4 @@
-import { addMonths } from '../../shared/recurring';
+import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
 import { aiConfig, chat } from '../nvidia';
@@ -12,13 +12,24 @@ const MAX_QUESTION = 1000;
 const DAILY_LIMIT = 50;
 const MONTHS = 6;
 const RECENT_TRANSACTIONS = 300;
+/** Questions shown in the history on the Ask AI page. */
+const HISTORY_LIMIT = 100;
+/** Earlier exchanges sent with a new question: at most this many, from at most this long ago. */
+const CONTEXT_EXCHANGES = 10;
+const CONTEXT_MINUTES = 60;
 
 const SYSTEM_PROMPT = [
   'You answer questions about one person’s personal expenses in Neraca, a spending tracker.',
-  'Use only the summary you are given. If the summary does not contain the answer, say so instead of guessing.',
-  'Amounts are plain numbers in the person’s own currency. Reply in the language of the question (Indonesian or English), briefly.',
+  'Use only the summary you are given and facts the person states in the conversation. You may calculate from them (sums, differences, dates months ahead).',
+  'If they do not contain the answer, say so instead of guessing.',
+  'For installments, the Installments section is the source of truth: it has the number of months, the installments paid and the last due date.',
+  'Amounts in the summary are plain numbers in the person’s own currency.',
+  'Reply in the language of the question (Indonesian or English), in one to three short sentences, not a bare number.',
+  'Write amounts with the currency and thousand separators, e.g. Rp17.415.000 in Indonesian or IDR 17,415,000 in English.',
   'Do not invent transactions, categories or dates.',
 ].join(' ');
+/** Currencies the app offers (src/web/format.ts). Anything else falls back to IDR. */
+const CURRENCIES = ['IDR', 'USD', 'EUR', 'GBP', 'SGD', 'MYR', 'JPY'];
 
 /** Today's date in Jakarta (WIB), as YYYY-MM-DD. */
 export function todayInWib() {
@@ -32,7 +43,7 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
   const firstMonth = addMonths(thisMonth, -(MONTHS - 1));
   const start = `${firstMonth}-01`;
 
-  const [categories, monthly, recent, sources, unpaid] = await Promise.all([
+  const [categories, monthly, recent, sources, unpaid, installments, loans] = await Promise.all([
     env.DB.prepare('SELECT id, name FROM categories WHERE user_id = ?').bind(userId).all<{ id: string; name: string }>(),
     env.DB.prepare(
       `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total, COUNT(*) AS count
@@ -56,6 +67,21 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
     )
       .bind(userId)
       .all<{ source_name: string; total: number; count: number }>(),
+    env.DB.prepare(
+      `SELECT i.name, i.amount, i.category_id, i.start_date, i.total_months,
+         COUNT(p.id) AS paid_count, COALESCE(SUM(p.amount), 0) AS paid_total, MAX(p.paid_on) AS last_paid_on
+       FROM recurring_items i LEFT JOIN recurring_payments p ON p.item_id = i.id
+       WHERE i.user_id = ? GROUP BY i.id ORDER BY i.name`,
+    )
+      .bind(userId)
+      .all<{ name: string; amount: number; category_id: string; start_date: string; total_months: number | null; paid_count: number; paid_total: number; last_paid_on: string | null }>(),
+    env.DB.prepare(
+      `SELECT l.name, l.principal, l.received_on, COALESCE(SUM(t.amount), 0) AS paid_total, COUNT(p.id) AS paid_count
+       FROM loans l LEFT JOIN loan_payments p ON p.loan_id = l.id LEFT JOIN transactions t ON t.id = p.transaction_id
+       WHERE l.user_id = ? GROUP BY l.id ORDER BY l.name`,
+    )
+      .bind(userId)
+      .all<{ name: string; principal: number; received_on: string; paid_total: number; paid_count: number }>(),
   ]);
 
   const names = new Map(categories.results.map((row) => [row.id, row.name]));
@@ -103,6 +129,37 @@ async function summaryOf(env: RouteContext['env'], userId: string) {
   lines.push('Card and paylater purchases not yet settled:');
   for (const row of unpaid.results) lines.push(`- ${row.source_name}: total ${row.total}, ${row.count} transactions`);
   if (unpaid.results.length === 0) lines.push('- none');
+  lines.push('');
+
+  // Worked out here rather than left to the model: the next installment, what is left, and the last due date.
+  lines.push('Installments and recurring payments (monthly, from the Installments page):');
+  for (const row of installments.results) {
+    // Counted the way the Installments page counts: installments paid = payments recorded.
+    const paidThrough = row.paid_count;
+    const next = nextInstallment(paidThrough, row.total_months);
+    const parts = [
+      `${row.amount} per month`,
+      categoryName(row.category_id),
+      `first installment due ${row.start_date}`,
+      `${paidThrough} installments paid (total ${row.paid_total})${row.last_paid_on ? `, last paid on ${row.last_paid_on}` : ''}`,
+    ];
+    if (row.total_months === null) {
+      parts.push('no end date');
+    } else {
+      const left = row.total_months - paidThrough;
+      parts.push(`${row.total_months} installments in total`, `${left} left (${left * row.amount} still to pay)`, `last installment due ${dueDateOf(row.start_date, row.total_months)}`);
+    }
+    parts.push(next === null ? 'fully paid' : `next is installment ${next}, due ${dueDateOf(row.start_date, next)}`);
+    lines.push(`- ${row.name}: ${parts.join(', ')}`);
+  }
+  if (installments.results.length === 0) lines.push('- none');
+  lines.push('');
+
+  lines.push('Loans received (money the person borrowed and pays back):');
+  for (const row of loans.results) {
+    lines.push(`- ${row.name}: borrowed ${row.principal} on ${row.received_on}, paid back ${row.paid_total} in ${row.paid_count} payments, ${Math.max(row.principal - row.paid_total, 0)} left`);
+  }
+  if (loans.results.length === 0) lines.push('- none');
 
   return lines.join('\n');
 }
@@ -120,13 +177,52 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
   const asked = await env.DB.prepare('SELECT COUNT(*) AS total FROM ai_questions WHERE user_id = ? AND day = ?').bind(actorId, day).first<{ total: number }>();
   if ((asked?.total ?? 0) >= DAILY_LIMIT) throw new HttpError(429, `Batas ${DAILY_LIMIT} pertanyaan per hari sudah tercapai. Coba lagi besok.`);
 
+  const currency = typeof body.currency === 'string' && CURRENCIES.includes(body.currency) ? body.currency : 'IDR';
   const summary = await summaryOf(env, userId);
+  // The latest exchanges of this session, so a follow-up ("and last month?") has its context. The
+  // summary goes only with the new question, so the model reads today's data once.
+  const recent = await env.DB.prepare(
+    `SELECT question, answer FROM ai_questions
+     WHERE user_id = ? AND question != '' AND created_at >= datetime('now', ?) ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+  )
+    .bind(actorId, `-${CONTEXT_MINUTES} minutes`, CONTEXT_EXCHANGES)
+    .all<{ question: string; answer: string }>();
+  const earlier = recent.results.reverse().flatMap((row) => [
+    { role: 'user' as const, content: row.question },
+    { role: 'assistant' as const, content: row.answer },
+  ]);
   const answer = await chat(config, [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: `${SYSTEM_PROMPT} The person’s currency is ${currency}.` },
+    ...earlier,
     { role: 'user', content: `${summary}
 
 Question: ${question}` },
-  ], 1024);
-  await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day) VALUES (?, ?, ?)').bind(crypto.randomUUID(), actorId, day).run();
-  return json({ answer });
+  ]);
+  const id = crypto.randomUUID();
+  await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day, question, answer) VALUES (?, ?, ?, ?, ?)')
+    .bind(id, actorId, day, question, answer)
+    .run();
+  const row = await env.DB.prepare('SELECT created_at FROM ai_questions WHERE id = ?').bind(id).first<{ created_at: string }>();
+  return json({ answer, id, createdAt: row?.created_at ?? '' });
+}
+
+/**
+ * GET /api/ask/history: the latest questions this person asked, oldest first. History belongs to the
+ * person who asked (actorId), not the shared data set, so workspace members do not see each other's.
+ */
+export async function askHistory({ env, actorId }: RouteContext) {
+  const rows = await env.DB.prepare(
+    `SELECT id, question, answer, created_at FROM ai_questions
+     WHERE user_id = ? AND question != '' ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+  )
+    .bind(actorId, HISTORY_LIMIT)
+    .all<{ id: string; question: string; answer: string; created_at: string }>();
+  const items = rows.results.reverse().map((row) => ({ id: row.id, question: row.question, answer: row.answer, createdAt: row.created_at }));
+  return json({ items });
+}
+
+/** DELETE /api/ask/history: empties this person's questions and answers. The rows stay for the daily limit. */
+export async function clearAskHistory({ env, actorId }: RouteContext) {
+  await env.DB.prepare("UPDATE ai_questions SET question = '', answer = '' WHERE user_id = ? AND question != ''").bind(actorId).run();
+  return json({ items: [] });
 }

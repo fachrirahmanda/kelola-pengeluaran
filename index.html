@@ -40,15 +40,23 @@
       html[data-theme='dark'] { background: #000; }
       .boot { position: fixed; inset: 0; display: grid; place-items: center; animation: boot-in 0.3s ease 0.15s both; }
       .boot svg { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 8px 28px rgb(0 0 0 / 0.18); }
-      .boot .trend { stroke-dasharray: 100; stroke-dashoffset: 100; animation: boot-draw 1.6s ease-in-out infinite; }
-      .boot .dot { transform-box: fill-box; transform-origin: center; opacity: 0; animation: boot-dot 1.6s ease-in-out infinite; }
-      @keyframes boot-draw { 0% { stroke-dashoffset: 100; } 60%, 100% { stroke-dashoffset: 0; } }
-      @keyframes boot-dot { 0%, 55% { opacity: 0; transform: scale(0); } 65%, 100% { opacity: 1; transform: scale(1); } }
+      /* One 2.2s loop: the line draws up to the top, the dot pops in with a ripple, then the line runs off
+         ahead and the dot fades, ready to draw again. Boot.tsx draws the same SVG and uses these rules too. */
+      .boot svg { animation: boot-breathe 2.2s ease-in-out infinite; }
+      .boot .trend { stroke-dasharray: 100; stroke-dashoffset: 100; animation: boot-draw 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+      .boot .dot, .boot .ripple { transform-box: fill-box; transform-origin: center; opacity: 0; }
+      .boot .dot { animation: boot-dot 2.2s ease-out infinite; }
+      .boot .ripple { animation: boot-ripple 2.2s ease-out infinite; }
+      @keyframes boot-draw { 0% { stroke-dashoffset: 100; } 42%, 72% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -100; } }
+      @keyframes boot-dot { 0%, 38% { opacity: 0; transform: scale(0); } 48% { opacity: 1; transform: scale(1.35); } 56%, 80% { opacity: 1; transform: scale(1); } 96%, 100% { opacity: 0; transform: scale(0.6); } }
+      @keyframes boot-ripple { 0%, 44% { opacity: 0; transform: scale(1); } 48% { opacity: 0.7; } 80%, 100% { opacity: 0; transform: scale(2.6); } }
+      @keyframes boot-breathe { 0%, 100% { transform: scale(1); } 48% { transform: scale(1.04); } }
       @keyframes boot-in { from { opacity: 0; transform: scale(0.94); } }
-      
+
       @media (prefers-reduced-motion: reduce) {
-        .boot .trend { animation: none; stroke-dashoffset: 0; }
-        .boot .dot { animation: none; opacity: 1; }
+        .boot svg, .boot .trend, .boot .dot, .boot .ripple { animation: none; }
+        .boot .trend { stroke-dashoffset: 0; }
+        .boot .dot { opacity: 1; }
       }
     </style>
   </head>
@@ -60,6 +68,7 @@
           <rect width="32" height="32" rx="8" fill="url(#boot-g)" />
           <rect x=".5" y=".5" width="31" height="31" rx="7.5" fill="none" stroke="#fff" stroke-opacity=".14" />
           <path class="trend" pathLength="100" d="M6 22.5 L11.5 16.5 L16.5 19.5 L26 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          <circle class="ripple" cx="26" cy="9" r="2.4" fill="none" stroke="#fff" stroke-width="1" />
           <circle class="dot" cx="26" cy="9" r="2.4" fill="#fff" />
         </svg>
       </div>

@@ -1,13 +1,13 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { api, ApiRequestError } from '../api';
 import { BankBadge } from '../components/BankBadge';
-import { DatePicker } from '../components/DatePicker';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
+import { IncomeSection } from '../components/IncomeSection';
+import { SalarySection } from '../components/SalarySection';
 import { SkeletonRows } from '../components/Skeleton';
 import { useSources } from '../data';
 import { BANKS, bankById } from '../../shared/banks';
-import { todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 import type { MessageKey } from '../i18n';
 import { SOURCE_KINDS, isBilledKind, type PaymentSource, type SourceKind } from '../../shared/types';
@@ -91,22 +91,6 @@ export function SourcesPage() {
           onCancel={() => setEditingId(null)}
         />
 
-        {incomeId && (
-          <div className="card" style={{ marginTop: 'var(--space-4)' }}>
-            <div className="card-body">
-              <h3 className="card-title">{t('income.title', { name: sources?.find((source) => source.id === incomeId)?.name ?? '' })}</h3>
-              <IncomeForm
-                sourceId={incomeId}
-                onDone={() => {
-                  setIncomeId(null);
-                  reload();
-                }}
-                onCancel={() => setIncomeId(null)}
-              />
-            </div>
-          </div>
-        )}
-
         <div className="card" style={{ marginTop: 'var(--space-4)' }}>
           <div className="card-body">
             <h3 className="card-title">{t('settings.addTitle')}</h3>
@@ -114,6 +98,10 @@ export function SourcesPage() {
           </div>
         </div>
       </section>
+
+      <IncomeSection sources={sources} addFor={incomeId} onAddFor={setIncomeId} onChanged={() => void reload()} />
+
+      <SalarySection sources={sources} onChanged={() => void reload()} />
     </>
   );
 }
@@ -259,61 +247,6 @@ function SourceEditor({ initial, submitLabel, onSave, onCancel }: SourceEditorPr
         )}
         <button type="submit" className="btn btn-primary" disabled={saving}>
           {saving ? t('form.saving') : submitLabel}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-/** Income into a wallet: money that came in (gaji, transfer masuk). It raises the balance and is not spending. */
-function IncomeForm({ sourceId, onDone, onCancel }: { sourceId: string; onDone: () => void; onCancel: () => void }) {
-  const { t } = usePrefs();
-  const [amount, setAmount] = useState('');
-  const [occurredOn, setOccurredOn] = useState(todayInWib());
-  const [note, setNote] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError('');
-    setSaving(true);
-    try {
-      await api.post(`/sources/${sourceId}/income`, { amount: Number(amount.replace(/\D/g, '')) || 0, occurredOn, note });
-      window.DS?.toast(t('income.saved'), { variant: 'success' });
-      onDone();
-    } catch (requestError) {
-      setError(requestError instanceof ApiRequestError ? requestError.message : t('income.error'));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form className="stack-lg" onSubmit={(event) => void submit(event)} noValidate>
-      <label className="tx-field">
-        <span className="tx-field-label">{t('income.amount')}</span>
-        <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required />
-      </label>
-      <div className="tx-field">
-        <span className="tx-field-label">{t('income.date')}</span>
-        <DatePicker value={occurredOn} onChange={(value) => setOccurredOn(value ?? todayInWib())} ariaLabel={t('income.date')} />
-      </div>
-      <label className="tx-field">
-        <span className="tx-field-label">{t('income.note')}</span>
-        <input className="input" value={note} maxLength={80} onChange={(event) => setNote(event.target.value)} />
-      </label>
-      {error && (
-        <p className="text-danger" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="form-actions">
-        <button type="button" className="btn" onClick={onCancel}>
-          {t('common.cancel')}
-        </button>
-        <button type="submit" className="btn btn-primary" disabled={saving || !Number(amount)}>
-          {saving ? t('form.saving') : t('income.save')}
         </button>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { debitSourceOf } from './sources';
 
 // Loans (pinjaman). Money received is recorded as a loan, not as spending. A repayment becomes an
 // expense transaction on the day it is paid, and the remaining balance is the principal minus the
@@ -14,11 +15,12 @@ export async function listLoans({ env, userId }: RouteContext) {
     .bind(userId)
     .all<{ id: string; name: string; principal: number; received_on: string }>();
   const payments = await env.DB.prepare(
-    `SELECT p.id, p.loan_id, p.paid_on, p.transaction_id, t.amount FROM loan_payments p
-     JOIN transactions t ON t.id = p.transaction_id WHERE p.user_id = ? ORDER BY p.paid_on DESC`,
+    `SELECT p.id, p.loan_id, p.paid_on, p.transaction_id, t.amount, s.name AS source_name FROM loan_payments p
+     JOIN transactions t ON t.id = p.transaction_id LEFT JOIN payment_sources s ON s.id = t.source_id
+     WHERE p.user_id = ? ORDER BY p.paid_on DESC`,
   )
     .bind(userId)
-    .all<{ id: string; loan_id: string; paid_on: string; transaction_id: string; amount: number }>();
+    .all<{ id: string; loan_id: string; paid_on: string; transaction_id: string; amount: number; source_name: string | null }>();
 
   return json({
     loans: loans.results.map((loan) => {
@@ -31,7 +33,7 @@ export async function listLoans({ env, userId }: RouteContext) {
         receivedOn: loan.received_on,
         paid,
         remaining: loan.principal - paid,
-        payments: mine.map((payment) => ({ id: payment.id, amount: payment.amount, paidOn: payment.paid_on, transactionId: payment.transaction_id })),
+        payments: mine.map((payment) => ({ id: payment.id, amount: payment.amount, paidOn: payment.paid_on, transactionId: payment.transaction_id, sourceName: payment.source_name })),
       };
     }),
   });
@@ -85,11 +87,8 @@ export async function payLoan({ request, env, userId, params }: RouteContext) {
 
   const category = await env.DB.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(body.categoryId, userId).first();
   if (!category) throw new HttpError(404, 'Kategori tidak ditemukan');
-  const sourceId = typeof body.sourceId === 'string' && body.sourceId ? body.sourceId : null;
-  if (sourceId) {
-    const source = await env.DB.prepare('SELECT id FROM payment_sources WHERE id = ? AND user_id = ?').bind(sourceId, userId).first();
-    if (!source) throw new HttpError(404, 'Sumber pembayaran tidak ditemukan');
-  }
+  // Debit comes from a savings account, which is required; cash and transfer have none.
+  const sourceId = body.method === 'debit' ? (await debitSourceOf(env.DB, userId, body.sourceId, amount)).id : null;
 
   const transactionId = crypto.randomUUID();
   await env.DB.batch([

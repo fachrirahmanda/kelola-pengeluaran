@@ -84,7 +84,7 @@ export async function testAi({ env, actorId }: RouteContext) {
   if (!config) throw new HttpError(400, 'Ask AI belum diatur');
   const started = Date.now();
   try {
-    await chat(config, [{ role: 'user', content: 'Reply with the single word: ok' }], 64);
+    await chat(config, [{ role: 'user', content: 'Reply with the single word: ok' }]);
     return json({ ok: true, ms: Date.now() - started, model: config.model, message: '' });
   } catch (err) {
     return json({ ok: false, ms: Date.now() - started, model: config.model, message: err instanceof HttpError ? err.message : 'Tes gagal.' });

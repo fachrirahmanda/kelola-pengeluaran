@@ -4,6 +4,7 @@ import { billPeriodOf } from '../../shared/billing';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
 import { notifyDataChange } from '../notify';
+import { balanceOf } from './sources';
 
 // Upper bound for one transaction (Rp 1 triliun). Guards against typos and unsafe integers.
 const MAX_AMOUNT = 1_000_000_000_000;
@@ -153,9 +154,24 @@ async function postingOf(db: D1Database, userId: string, input: TransactionInput
   return paid ? { status: 'posted', postedOn: paid.paid_on } : { status: 'unpaid', postedOn: null };
 }
 
+/**
+ * Spending from a savings account (any method but credit) must not take it below zero. `alreadyCounted` is what
+ * this transaction already takes from the same account, when it is being edited.
+ */
+async function ensureFunds(db: D1Database, input: TransactionInput, alreadyCounted = 0) {
+  if (input.method === 'credit' || !input.sourceId) return;
+  const balance = (await balanceOf(db, input.sourceId)) + alreadyCounted;
+  if (balance < input.amount) {
+    const source = await db.prepare('SELECT name FROM payment_sources WHERE id = ?').bind(input.sourceId).first<{ name: string }>();
+    const rupiah = (value: number) => `Rp${Math.max(0, value).toLocaleString('id-ID')}`;
+    throw new HttpError(400, `Saldo ${source?.name ?? 'rekening'} tidak cukup: tersisa ${rupiah(balance)}, perlu ${rupiah(input.amount)}.`);
+  }
+}
+
 /** POST /api/transactions */
 export async function createTransaction({ request, env, userId, actorId }: RouteContext) {
   const input = await parseTransaction(env.DB, userId, await readJson(request));
+  await ensureFunds(env.DB, input);
   const posting = await postingOf(env.DB, userId, input);
   const id = crypto.randomUUID();
 
@@ -184,6 +200,7 @@ export async function updateTransaction({ request, env, userId, actorId, params 
   if (isInstallment && (input.amount !== existing.amount || input.occurredOn !== existing.occurred_on || input.method !== existing.method)) {
     throw new HttpError(409, INSTALLMENT_LOCKED_MESSAGE);
   }
+  await ensureFunds(env.DB, input, existing.method !== 'credit' && existing.source_id === input.sourceId ? existing.amount : 0);
   let posting: Pick<Transaction, 'status' | 'postedOn'>;
   if (existing.method === 'credit' && existing.status === 'posted') {
     const changed = input.amount !== existing.amount || input.occurredOn !== existing.occurred_on || input.sourceId !== existing.source_id || input.method !== 'credit';

@@ -3,6 +3,7 @@ import { addMonths, dueDateOf, dueMonthOf, monthOf, nextInstallment } from '../.
 import { RECURRING_METHODS, type RecurringItem, type RecurringMethod, type RecurringPayment } from '../../shared/types';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { debitSourceOf } from './sources';
 
 const NAME_MAX = 60;
 const MAX_AMOUNT = 1_000_000_000_000;
@@ -34,6 +35,27 @@ async function categoryOwned(db: D1Database, userId: string, categoryId: unknown
   const row = await db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(categoryId, userId).first();
   if (!row) throw new HttpError(400, 'Kategori tidak ditemukan');
   return categoryId;
+}
+
+/**
+ * The method, and for debit the savings account it is paid from, which must hold `amount`. Cash and transfer
+ * have no account.
+ */
+async function paymentMethodOf(env: Env, userId: string, body: Record<string, unknown>, amount: number) {
+  if (!RECURRING_METHODS.includes(body.method as RecurringMethod)) throw new HttpError(400, 'Metode bayar tidak valid');
+  const method = body.method as RecurringMethod;
+  const sourceId = method === 'debit' ? (await debitSourceOf(env.DB, userId, body.sourceId, amount)).id : null;
+  return { method, sourceId };
+}
+
+/** How many installments are due up to `throughMonth` and not recorded yet: what a catch-up would add. */
+async function dueThrough(env: Env, item: ItemRow, throughMonth: string) {
+  const paid = await env.DB.prepare('SELECT COUNT(*) AS paid FROM recurring_payments WHERE item_id = ?').bind(item.id).first<{ paid: number }>();
+  let count = 0;
+  for (let installment = nextInstallment(paid?.paid ?? 0, item.total_months); installment !== null && dueMonthOf(item.start_date, installment) <= throughMonth; installment = nextInstallment(installment, item.total_months)) {
+    count += 1;
+  }
+  return count;
 }
 
 /** Checks name, amount, category and (for a new item) the start date and number of months. */
@@ -86,12 +108,13 @@ export async function listRecurring({ env, userId }: RouteContext) {
     .sort((a, b) => (a.nextDueDate ?? '').localeCompare(b.nextDueDate ?? ''));
 
   const { results: paymentRows } = await env.DB.prepare(
-    `SELECT p.id, p.item_id, i.name, p.installment, p.due_month, p.amount, p.paid_on
+    `SELECT p.id, p.item_id, i.name, p.installment, p.due_month, p.amount, p.paid_on, s.name AS source_name
      FROM recurring_payments p JOIN recurring_items i ON i.id = p.item_id
+       LEFT JOIN transactions t ON t.id = p.transaction_id LEFT JOIN payment_sources s ON s.id = t.source_id
      WHERE p.user_id = ? ORDER BY p.paid_on DESC, p.created_at DESC LIMIT ${PAYMENT_LIST_LIMIT}`,
   )
     .bind(userId)
-    .all<{ id: string; item_id: string; name: string; installment: number; due_month: string; amount: number; paid_on: string }>();
+    .all<{ id: string; item_id: string; name: string; installment: number; due_month: string; amount: number; paid_on: string; source_name: string | null }>();
   const payments: RecurringPayment[] = paymentRows.map((row) => ({
     id: row.id,
     itemId: row.item_id,
@@ -100,6 +123,7 @@ export async function listRecurring({ env, userId }: RouteContext) {
     dueMonth: row.due_month,
     amount: row.amount,
     paidOn: row.paid_on,
+    sourceName: row.source_name,
   }));
 
   return json({ items, upcoming, payments, nextMonth });
@@ -115,7 +139,7 @@ const isMonth = (value: unknown): value is string => typeof value === 'string' &
  * installment payment each, both dated on the due day. Installments already recorded are left alone.
  * Returns how many installments were added.
  */
-async function recordThrough(env: Env, userId: string, item: ItemRow, throughMonth: string, method: RecurringMethod): Promise<number> {
+async function recordThrough(env: Env, userId: string, item: ItemRow, throughMonth: string, method: RecurringMethod, sourceId: string | null = null): Promise<number> {
   const paid = await env.DB.prepare('SELECT COUNT(*) AS paid FROM recurring_payments WHERE item_id = ?').bind(item.id).first<{ paid: number }>();
   const statements: D1PreparedStatement[] = [];
   let installment = nextInstallment(paid?.paid ?? 0, item.total_months);
@@ -125,8 +149,8 @@ async function recordThrough(env: Env, userId: string, item: ItemRow, throughMon
     statements.push(
       env.DB.prepare(
         `INSERT INTO transactions (id, user_id, occurred_on, amount, category_id, note, method, source_id, status, posted_on)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'posted', ?)`,
-      ).bind(transactionId, userId, dueDate, item.amount, item.category_id, `${item.name} (${installment})`, method, dueDate),
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
+      ).bind(transactionId, userId, dueDate, item.amount, item.category_id, `${item.name} (${installment})`, method, sourceId, dueDate),
       env.DB.prepare(
         'INSERT INTO recurring_payments (id, user_id, item_id, installment, due_month, amount, paid_on, transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       ).bind(crypto.randomUUID(), userId, item.id, installment, dueMonthOf(item.start_date, installment), item.amount, dueDate, transactionId),
@@ -165,7 +189,7 @@ export async function createRecurring({ request, env, userId }: RouteContext) {
   return json({ item: toItem(row, paid?.paid ?? 0, paid?.last_paid_on ?? null, todayWib()) }, 201);
 }
 
-/** POST /api/recurring/:id/catch-up { throughMonth, method }: records the installments due up to that month. */
+/** POST /api/recurring/:id/catch-up { throughMonth, method, sourceId? }: records the installments due up to that month. */
 export async function catchUpRecurring({ request, env, userId, params }: RouteContext) {
   const item = await env.DB.prepare('SELECT id, name, amount, category_id, start_date, total_months FROM recurring_items WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)
@@ -174,8 +198,8 @@ export async function catchUpRecurring({ request, env, userId, params }: RouteCo
   const body = await readJson(request);
   if (!isMonth(body.throughMonth)) throw new HttpError(400, 'Pilih bulan pembayaran terakhir');
   if (body.throughMonth > todayWib().slice(0, 7)) throw new HttpError(400, 'Bulan pembayaran tidak boleh di masa depan');
-  if (!RECURRING_METHODS.includes(body.method as RecurringMethod)) throw new HttpError(400, 'Metode bayar tidak valid');
-  const added = await recordThrough(env, userId, item, body.throughMonth, body.method as RecurringMethod);
+  const { method, sourceId } = await paymentMethodOf(env, userId, body, (await dueThrough(env, item, body.throughMonth)) * item.amount);
+  const added = await recordThrough(env, userId, item, body.throughMonth, method, sourceId);
   return json({ added });
 }
 
@@ -210,8 +234,9 @@ export async function deleteRecurring({ env, userId, params }: RouteContext) {
 }
 
 /**
- * POST /api/recurring/:id/pay { paidOn, method }: pays the next installment. It becomes a posted
- * transaction on the payment date, in the item's category.
+ * POST /api/recurring/:id/pay { paidOn, method, sourceId? }: pays the next installment. It becomes a posted
+ * transaction on the payment date, in the item's category. A debit payment names the savings account it
+ * comes from, and the amount comes off that account's balance.
  */
 export async function payRecurring({ request, env, userId, params }: RouteContext) {
   const item = await env.DB.prepare('SELECT id, name, amount, category_id, start_date, total_months FROM recurring_items WHERE id = ? AND user_id = ?')
@@ -221,8 +246,7 @@ export async function payRecurring({ request, env, userId, params }: RouteContex
 
   const body = await readJson(request);
   if (!isDate(body.paidOn)) throw new HttpError(400, 'Tanggal pelunasan tidak valid');
-  if (!RECURRING_METHODS.includes(body.method as RecurringMethod)) throw new HttpError(400, 'Metode bayar tidak valid');
-  const method = body.method as RecurringMethod;
+  const { method, sourceId } = await paymentMethodOf(env, userId, body, item.amount);
 
   const paid = await env.DB.prepare('SELECT COUNT(*) AS paid FROM recurring_payments WHERE item_id = ?').bind(item.id).first<{ paid: number }>();
   const installment = nextInstallment(paid?.paid ?? 0, item.total_months);
@@ -235,8 +259,8 @@ export async function payRecurring({ request, env, userId, params }: RouteContex
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO transactions (id, user_id, occurred_on, amount, category_id, note, method, source_id, status, posted_on)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'posted', ?)`,
-      ).bind(transactionId, userId, body.paidOn, item.amount, item.category_id, `${item.name} (${installment})`, method, body.paidOn),
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'posted', ?)`,
+      ).bind(transactionId, userId, body.paidOn, item.amount, item.category_id, `${item.name} (${installment})`, method, sourceId, body.paidOn),
       env.DB.prepare(
         'INSERT INTO recurring_payments (id, user_id, item_id, installment, due_month, amount, paid_on, transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       ).bind(paymentId, userId, item.id, installment, dueMonth, item.amount, body.paidOn, transactionId),
@@ -254,6 +278,7 @@ export async function payRecurring({ request, env, userId, params }: RouteContex
     dueMonth,
     amount: item.amount,
     paidOn: body.paidOn,
+    sourceName: null,
   };
   return json({ payment }, 201);
 }

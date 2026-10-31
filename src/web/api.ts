@@ -9,6 +9,12 @@ export class ApiRequestError extends Error {
   }
 }
 
+/** Told the data set's new change count after each change this page makes (see useLiveRefresh). */
+let onDataVersion: ((version: number) => void) | null = null;
+export function listenDataVersion(listener: ((version: number) => void) | null) {
+  onDataVersion = listener;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
@@ -16,6 +22,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  const version = Number(response.headers.get('x-data-version'));
+  if (version) onDataVersion?.(version);
 
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
