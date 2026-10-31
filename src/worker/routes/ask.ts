@@ -1,5 +1,6 @@
 import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
 import type { RouteContext } from '../context';
+import { fillCalculations } from '../calc';
 import { HttpError, json, readJson } from '../http';
 import { aiConfig, chat } from '../nvidia';
 
@@ -19,15 +20,52 @@ const CONTEXT_EXCHANGES = 10;
 const CONTEXT_MINUTES = 60;
 
 const SYSTEM_PROMPT = [
-  'You answer questions about one person’s personal expenses in Neraca, a spending tracker.',
-  'Use only the summary you are given and facts the person states in the conversation. You may calculate from them (sums, differences, dates months ahead).',
+  'You answer questions about one person’s personal expenses in Neraca, a spending tracker, about how to use Neraca, and about personal finance and calculations.',
+  'For their own money, use only the summary you are given and facts the person states in the conversation. You may calculate from them (sums, differences, dates months ahead).',
   'If they do not contain the answer, say so instead of guessing.',
   'For installments, the Installments section is the source of truth: it has the number of months, the installments paid and the last due date.',
   'Amounts in the summary are plain numbers in the person’s own currency.',
-  'Reply in the language of the question (Indonesian or English), in one to three short sentences, not a bare number.',
+  'Reply in the language of the question (Indonesian or English), briefly: one to three short sentences, or a short list of steps for how-to questions and calculations. Never a bare number.',
   'Write amounts with the currency and thousand separators, e.g. Rp17.415.000 in Indonesian or IDR 17,415,000 in English.',
   'Do not invent transactions, categories or dates.',
 ].join(' ');
+
+/** How Neraca works, so the model can answer "how do I…" and explain how amounts are counted. */
+const APP_GUIDE = [
+  'About Neraca, for questions on how to use the app:',
+  '- Home (Dashboard): this month’s spending and transactions, unpaid credit card spending, what is due next month, running card bills, spending by category and recent transactions.',
+  '- Add expense (the + button): amount, date and time, category, note, payment method and source. The form stays open for the next entry. Receipts can be attached and are stored in Google Drive.',
+  '- History: every transaction, with edit and delete. Reports: spending per month and per category, and a CSV export.',
+  '- Bills: credit card and paylater bills; marking a bill as paid counts its purchases as spending.',
+  '- Installments: monthly installments and recurring payments; each counts as spending on the day it is marked paid.',
+  '- Loans: money borrowed is not spending; each repayment counts as spending on the day it is paid.',
+  '- Budgeting: monthly spending limits. Sources of funds: savings accounts, credit cards and paylater, with balances; income into an account raises its balance, and salary is added on every payday by itself.',
+  '- Settings: categories, workspace members (the owner invites people by email; members see and change the same data), storage and Ask AI. Profile: name, photo, language, currency and color style.',
+  '- The bell shows notifications: invitations, changes others made in shared data, and card bills due within 3 days. Ask AI allows 50 questions per person per day.',
+  '- Payment methods are cash, debit, transfer and credit. Cash, debit and transfer count as spending on the day they happen. Credit card and paylater purchases stay unpaid until their bill is paid and then count in the month the bill is paid. A card’s bill period ends on its closing day, and the bill is due on its payment day.',
+].join('\n');
+
+/** General personal-finance knowledge, with the formulas the model should use. */
+const FINANCE_GUIDE = [
+  'Personal finance: you may also answer general questions on budgeting, saving, loans and interest, even when they are not about the summary. Give general guidance, not professional financial advice, and state the assumptions you used (rate, months).',
+  '- Share of a total: part / total * 100. Average per month: total / number of months. Savings rate: (income - spending) / income * 100.',
+  '- Flat-rate loan (bunga flat, common in Indonesia): monthly payment = (principal + principal * yearly rate * years) / months.',
+  '- Effective-rate (annuity) loan: monthly payment = P * r / (1 - (1 + r)^-n), where r = yearly rate / 12 and n = months.',
+  '- Compound growth: P * (1 + r)^n. Saving A every month for n months at monthly rate r: A * ((1 + r)^n - 1) / r. Without interest, the monthly amount for a goal is goal / months.',
+  '- Rules of thumb: 50/30/20 (needs, wants, savings), an emergency fund of 3 to 6 months of expenses, and paying a credit card bill in full by its due date to avoid interest.',
+].join('\n');
+
+/** The calculator (see calc.ts): the model writes calculations, the Worker works them out. */
+const CALCULATOR = [
+  'Calculator: never work out arithmetic yourself. Write every number you calculate as [[= expression]], with plain digits (no thousand separators, a dot for decimals), + - * / ^ ( ) and % for percent (10% means 0.1). The app replaces it with the result.',
+  'Examples: "Sisa budget Rp[[= 3000000 - 1250000]]" and "an installment of IDR [[= 10000000 * 0.01 / (1 - (1 + 0.01)^-12)]] a month". Numbers copied from the summary need no brackets.',
+].join(' ');
+
+/** Words that mark an Indonesian question, for the separators the calculator's results use. */
+const INDONESIAN = /\b(berapa|apa|apakah|yang|bulan|saya|aku|gimana|bagaimana|kapan|kenapa|mengapa|untuk|dari|ini|itu|tagihan|cicilan|pengeluaran|bunga|tabungan)\b/i;
+
+/** id-ID (17.415.000) for an Indonesian question or answer, else en-US (17,415,000). */
+const localeOf = (question: string, answer: string) => (/Rp\s?(\d|\[\[)/.test(answer) || INDONESIAN.test(question) ? 'id-ID' : 'en-US');
 /** Currencies the app offers (src/web/format.ts). Anything else falls back to IDR. */
 const CURRENCIES = ['IDR', 'USD', 'EUR', 'GBP', 'SGD', 'MYR', 'JPY'];
 
@@ -191,13 +229,15 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
     { role: 'user' as const, content: row.question },
     { role: 'assistant' as const, content: row.answer },
   ]);
-  const answer = await chat(config, [
-    { role: 'system', content: `${SYSTEM_PROMPT} The person’s currency is ${currency}.` },
+  const raw = await chat(config, [
+    { role: 'system', content: `${SYSTEM_PROMPT} The person’s currency is ${currency}.\n\n${APP_GUIDE}\n\n${FINANCE_GUIDE}\n\n${CALCULATOR}` },
     ...earlier,
     { role: 'user', content: `${summary}
 
 Question: ${question}` },
   ]);
+  // Stored with the results filled in, so the history and the next question's context show numbers.
+  const answer = fillCalculations(raw, localeOf(question, raw));
   const id = crypto.randomUUID();
   await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day, question, answer) VALUES (?, ?, ?, ?, ?)')
     .bind(id, actorId, day, question, answer)
