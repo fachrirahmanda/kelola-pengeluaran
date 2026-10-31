@@ -9,17 +9,28 @@ import { balanceOf } from './sources';
 
 const isDate = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 const LIST_LIMIT = 50;
+/** Incomes in a date range (the History calendar's month). */
+const RANGE_LIMIT = 500;
 const MAX_AMOUNT = 1_000_000_000_000;
 
-/** GET /api/incomes: the latest incomes into every savings account, newest first. */
-export async function listIncomes({ env, userId }: RouteContext) {
+/**
+ * GET /api/incomes: the latest incomes into every savings account, newest first. With ?from=&to= (YYYY-MM-DD),
+ * the incomes in that range instead.
+ */
+export async function listIncomes({ request, env, userId }: RouteContext) {
   await syncSalaries(env, userId);
+  const url = new URL(request.url);
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  if ((from && !isDate(from)) || (to && !isDate(to))) throw new HttpError(400, 'Tanggal tidak valid');
+  const range = from && to;
   const { results } = await env.DB.prepare(
     `SELECT i.id, i.source_id, s.name AS source_name, s.bank, i.occurred_on, i.amount, i.note, i.salary_month
      FROM incomes i JOIN payment_sources s ON s.id = i.source_id
-     WHERE i.user_id = ? ORDER BY i.occurred_on DESC, i.created_at DESC LIMIT ${LIST_LIMIT}`,
+     WHERE i.user_id = ?${range ? ' AND i.occurred_on >= ? AND i.occurred_on <= ?' : ''}
+     ORDER BY i.occurred_on DESC, i.created_at DESC LIMIT ${range ? RANGE_LIMIT : LIST_LIMIT}`,
   )
-    .bind(userId)
+    .bind(...(range ? [userId, from, to] : [userId]))
     .all<{ id: string; source_id: string; source_name: string; bank: string | null; occurred_on: string; amount: number; note: string; salary_month: string | null }>();
   const incomes: Income[] = results.map((row) => ({
     id: row.id,
