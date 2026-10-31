@@ -299,7 +299,6 @@ select.input,
   background: var(--bg);
 }
 
-
 /* Dashboard */
 
 .stat-grid {
@@ -866,7 +865,6 @@ select.input,
   background: rgb(255 255 255 / 0.4);
 }
 
-
 .login-highlights {
   display: grid;
   gap: 14px;
@@ -1059,7 +1057,6 @@ select.input,
 .skeleton-form .category-grid .skeleton {
   border-radius: var(--radius-lg);
 }
-
 
 .flag {
   display: block;
@@ -1901,7 +1898,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   background: var(--fill);
 }
 
-
 /* Ask AI: the chat. Your questions sit on the right, the answers on the left. */
 /* The Ask AI composer stays in view at the bottom of the screen, over a band of the page colour so the
    conversation scrolls behind it. On phones it sits above the bottom bar (whose top is about 75px up), and
@@ -2218,6 +2214,7 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 .notif-count {
   position: absolute;
+  box-sizing: border-box;
   top: -3px;
   right: -3px;
   display: grid;
@@ -2235,10 +2232,17 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   box-shadow: 0 0 0 2px var(--bg);
 }
 
-/* The top bar's bell is a larger button: the count sits on the bell's shoulder, not the button's corner. */
+/* The top bar's bell is a larger button: the count is placed from the button's centre, where the 18px bell
+   is, so it sits on the bell's top-right corner whatever the button's size, and does not cover the bell. */
 .notif-btn:not(.icon-btn-sm) .notif-count {
-  top: 4px;
-  right: 3px;
+  top: calc(50% - 16px);
+  right: auto;
+  left: calc(50% + 3px);
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 9px;
+  box-shadow: 0 0 0 1.5px var(--bg);
 }
 
 /* The bell's panel slides in from the right edge at full height, like the sidebar, on every screen. It has
@@ -2770,57 +2774,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   text-align: center;
 }
 
-.cal-cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 56px;
-  padding: 6px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  color: var(--text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  min-width: 0;
-}
-
-.cal-cell:hover {
-  background: var(--fill);
-}
-
-.cal-cell.is-empty {
-  background: transparent;
-  cursor: default;
-}
-
-.cal-cell.is-today .cal-day {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.cal-cell.has-spend .cal-total {
-  color: var(--text);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.cal-day {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.cal-total {
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-
 /* Group headings in the phone "More" sheet, the same groups as the desktop sidebar (Silpasala's notif-day). */
 .more-group-label {
   margin: 14px 2px 6px;
@@ -3327,9 +3280,9 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   min-height: 40px;
 }
 
-/* Calendar: square cells with the day, any income (green, with +) and the spending in short form, on every
-   screen. A day's tint deepens with its spending, relative to the month's biggest day (--cal-heat, 0 to 1).
-   The month changes by swiping (phones) or with the arrows (wider screens). */
+/* Calendar: a tile for each day with the day, any income (green, with +) and the spending in short form. A
+   tile's violet deepens with its spending, relative to the month's biggest day (--cal-heat, 0 to 1); today's
+   tile is dark, and days still ahead are only outlined. The month changes by swiping or with the arrows. */
 .cal-head {
   display: flex;
   align-items: center;
@@ -3367,7 +3320,7 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: 8px;
   animation: cal-slide 0.28s var(--ease);
 }
 
@@ -3384,112 +3337,107 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 .cal-weekday {
   padding: 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-align: center;
+  text-transform: uppercase;
 }
 
-.cal-cell {
+.tx-calendar {
+  --cal-tint: #8b5cf6;
+}
+
+.cal-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  aspect-ratio: 1 / 1;
+  gap: 1px;
   min-width: 0;
-  min-height: 0;
-  padding: 0;
+  min-height: 54px;
+  padding: 6px 2px;
   border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
+  border-radius: 12px;
+  background: var(--fill-strong);
   color: var(--text);
   font: inherit;
   cursor: pointer;
 }
 
-.cal-cell:hover {
-  background: var(--fill);
+.cal-tile.has-spend {
+  background: color-mix(in srgb, var(--cal-tint) calc(22% + var(--cal-heat, 0) * 48%), var(--fill-strong));
 }
 
-.cal-cell.is-empty {
-  cursor: default;
+.cal-tile.is-future {
   background: transparent;
+  box-shadow: inset 0 0 0 1px var(--separator);
+  color: var(--muted);
 }
 
-.cal-day {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  font-size: var(--text-sm);
+.cal-tile.is-today {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.cal-tile.is-empty {
+  background: transparent;
+  box-shadow: none;
+  cursor: default;
+}
+
+.cal-tile:not(.is-empty):hover {
+  filter: brightness(0.96);
+}
+
+.cal-tile-day {
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
-.cal-cell.is-today .cal-day {
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-}
-
-.tx-calendar {
-  --cal-tint: var(--text);
-}
-
-.cal-cell.has-spend {
-  background: color-mix(in srgb, var(--cal-tint) calc(6% + var(--cal-heat, 0) * 22%), transparent);
-}
-
-.cal-cell.has-spend:hover {
-  background: color-mix(in srgb, var(--cal-tint) calc(10% + var(--cal-heat, 0) * 22%), transparent);
-}
-
-.cal-in,
-.cal-total {
+.cal-tile-in,
+.cal-tile-amount {
   max-width: 100%;
   overflow: hidden;
-  font-size: 10px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cal-total {
-  color: var(--muted);
-}
-
-.cal-cell.has-spend .cal-total {
-  color: var(--text);
-  font-size: 10px;
+.cal-tile-in {
+  color: var(--success);
+  font-size: 9px;
   font-weight: 600;
 }
 
-.cal-in,
+.cal-tile-amount {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cal-tile.is-future .cal-tile-amount {
+  font-weight: 400;
+}
+
 .cal-income {
   color: var(--success);
   font-weight: 600;
 }
 
-/* The day number is smaller here, to leave room for the amounts. */
-.cal-cell .cal-day {
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
-}
-
 @media (max-width: 720px) {
-  .cal-nav {
-    display: none;
-  }
-
   .cal-grid {
-    gap: 3px;
+    gap: 6px;
   }
-}
 
-@media (min-width: 721px) {
-  .cal-in,
-  .cal-total,
-  .cal-cell.has-spend .cal-total {
+  .cal-tile {
+    min-height: 50px;
+    border-radius: 10px;
+  }
+
+  .cal-tile-amount {
     font-size: 11px;
   }
 }
