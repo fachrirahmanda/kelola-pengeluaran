@@ -3327,8 +3327,9 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   min-height: 40px;
 }
 
-/* Calendar: square, centred cells. A dot marks a day with spending on phones; the amount shows on wider
-   screens. The month changes by swiping (phones) or with the arrows (wider screens). */
+/* Calendar: square cells with the day, any income (green, with +) and the spending in short form, on every
+   screen. A day's tint deepens with its spending, relative to the month's biggest day (--cal-heat, 0 to 1).
+   The month changes by swiping (phones) or with the arrows (wider screens). */
 .cal-head {
   display: flex;
   align-items: center;
@@ -3429,36 +3430,67 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   font-weight: 600;
 }
 
-.cal-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
+.tx-calendar {
+  --cal-tint: var(--text);
+}
+
+.cal-cell.has-spend {
+  background: color-mix(in srgb, var(--cal-tint) calc(6% + var(--cal-heat, 0) * 22%), transparent);
+}
+
+.cal-cell.has-spend:hover {
+  background: color-mix(in srgb, var(--cal-tint) calc(10% + var(--cal-heat, 0) * 22%), transparent);
+}
+
+.cal-in,
+.cal-total {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cal-total {
-  display: none;
+  color: var(--muted);
+}
+
+.cal-cell.has-spend .cal-total {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.cal-in,
+.cal-income {
+  color: var(--success);
+  font-weight: 600;
+}
+
+/* The day number is smaller here, to leave room for the amounts. */
+.cal-cell .cal-day {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
 }
 
 @media (max-width: 720px) {
   .cal-nav {
     display: none;
   }
+
+  .cal-grid {
+    gap: 3px;
+  }
 }
 
 @media (min-width: 721px) {
-  .cal-dot {
-    display: none;
-  }
-
-  .cal-total {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    color: var(--muted);
+  .cal-in,
+  .cal-total,
+  .cal-cell.has-spend .cal-total {
     font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEve
 import { api } from '../api';
 import { localeOf, monthLabel, todayInWib } from '../format';
 import { usePrefs } from '../prefs';
-import type { Transaction } from '../../shared/types';
+import type { Income, Transaction } from '../../shared/types';
 import { Icon } from './Icon';
 import { SkeletonRows } from './Skeleton';
 
-// Transactions as a month calendar: what was counted (posted) on each day. On phones you change month by
-// swiping the calendar sideways; on larger screens there are arrows as well. Pick a day to see its
-// transactions in the list.
+// Transactions as a month calendar: on each day, what was spent (by the day it happened, as the list's date
+// filter counts it, card purchases included) and any income, in short form (154,4 rb, 2,4 jt). The more a
+// day's spending, the deeper its tint. On phones you change month by swiping the calendar sideways; on
+// larger screens there are arrows as well. Pick a day to see its transactions in the list.
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const SWIPE_MIN = 48;
@@ -25,6 +26,7 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
   const [month, setMonth] = useState(todayInWib().slice(0, 7));
   const [direction, setDirection] = useState<1 | -1>(1);
   const [items, setItems] = useState<Transaction[] | null>(null);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [error, setError] = useState('');
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
@@ -40,10 +42,12 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
   useEffect(() => {
     let ignore = false;
     setItems(null);
-    api
-      .get<{ transactions: Transaction[] }>(`/transactions?from=${month}-01&to=${month}-${pad(days)}`)
-      .then((data) => {
-        if (!ignore) setItems(data.transactions);
+    const range = `from=${month}-01&to=${month}-${pad(days)}`;
+    Promise.all([api.get<{ transactions: Transaction[] }>(`/transactions?${range}`), api.get<{ incomes: Income[] }>(`/incomes?${range}`)])
+      .then(([spent, received]) => {
+        if (ignore) return;
+        setItems(spent.transactions);
+        setIncomes(received.incomes);
       })
       .catch(() => {
         if (!ignore) setError(t('cal.error'));
@@ -55,19 +59,21 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
+  // Each day's spending and income.
   const totals = useMemo(() => {
-    const byDay = new Map<string, { total: number; count: number }>();
-    for (const item of items ?? []) {
-      if (item.status !== 'posted' || !item.postedOn) continue;
-      const entry = byDay.get(item.postedOn) ?? { total: 0, count: 0 };
-      entry.total += item.amount;
-      entry.count += 1;
-      byDay.set(item.postedOn, entry);
-    }
+    const byDay = new Map<string, { spent: number; income: number }>();
+    const entryOf = (day: string) => byDay.get(day) ?? byDay.set(day, { spent: 0, income: 0 }).get(day)!;
+    for (const item of items ?? []) entryOf(item.occurredOn).spent += item.amount;
+    for (const income of incomes) entryOf(income.occurredOn).income += income.amount;
     return byDay;
-  }, [items]);
+  }, [items, incomes]);
 
-  const monthTotal = [...totals.values()].reduce((sum, entry) => sum + entry.total, 0);
+  const entries = [...totals.values()];
+  const monthSpent = entries.reduce((sum, entry) => sum + entry.spent, 0);
+  const monthIncome = entries.reduce((sum, entry) => sum + entry.income, 0);
+  // The tint is relative to the month's biggest day.
+  const maxSpent = Math.max(0, ...entries.map((entry) => entry.spent));
+  const compact = new Intl.NumberFormat(localeOf(lang), { notation: 'compact', maximumFractionDigits: 1 });
   const weekdays = Array.from({ length: 7 }, (_, index) =>
     new Date(Date.UTC(2024, 0, 1 + index)).toLocaleDateString(localeOf(lang), { weekday: 'short', timeZone: 'UTC' }),
   );
@@ -101,7 +107,15 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
             <Icon name="chevron-right" size={16} />
           </button>
         </div>
-        <p className="hint m-0 cal-summary">{t('cal.monthTotal', { total: money(monthTotal) })}</p>
+        <p className="hint m-0 cal-summary">
+          {t('cal.monthSpent', { total: money(monthSpent) })}
+          {monthIncome > 0 && (
+            <>
+              {' · '}
+              <span className="cal-income">{t('cal.monthIncome', { total: money(monthIncome) })}</span>
+            </>
+          )}
+        </p>
 
         {error && <p className="text-danger">{error}</p>}
         {items === null && !error ? (
@@ -117,18 +131,22 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
               {cells.map((day, index) => {
                 if (day === null) return <span key={`empty-${index}`} className="cal-cell is-empty" aria-hidden="true" />;
                 const key = `${month}-${pad(day)}`;
-                const entry = totals.get(key);
+                const spent = totals.get(key)?.spent ?? 0;
+                const income = totals.get(key)?.income ?? 0;
+                const label = [key, spent ? money(spent) : '', income ? `+${money(income)}` : ''].filter(Boolean).join(', ');
                 return (
                   <button
                     key={key}
                     type="button"
-                    className={`cal-cell${key === today ? ' is-today' : ''}${entry ? ' has-spend' : ''}`}
+                    className={`cal-cell${key === today ? ' is-today' : ''}${spent ? ' has-spend' : ''}${key > today ? ' is-future' : ''}`}
+                    style={spent ? ({ '--cal-heat': (spent / maxSpent).toFixed(2) } as CSSProperties) : undefined}
                     onClick={() => onPickDay(key)}
-                    aria-label={`${key}${entry ? `, ${money(entry.total)}` : ''}`}
+                    aria-label={label}
                   >
                     <span className="cal-day">{day}</span>
-                    {entry && <span className="cal-dot" aria-hidden="true" />}
-                    {entry && <span className="cal-total">{money(entry.total)}</span>}
+                    {income > 0 && <span className="cal-in">+{compact.format(income)}</span>}
+                    {/* Days so far show 0 when nothing was spent; days still ahead stay blank. */}
+                    {(spent > 0 || key <= today) && <span className="cal-total">{compact.format(spent)}</span>}
                   </button>
                 );
               })}
