@@ -21,8 +21,13 @@ export const MODELS = [
   'nvidia/nemotron-3-super-120b-a12b',
   'moonshotai/kimi-k2.6',
 ];
-/** NVIDIA's free endpoints can queue a request for minutes. Past this, the request is given up. */
-const TIMEOUT_MS = 60_000;
+/**
+ * Answers are streamed. A request is given up when NVIDIA sends nothing for IDLE_MS (it stopped, or is
+ * still queued), or when the whole answer takes longer than TOTAL_MS. A reasoning model keeps sending its
+ * thinking while it works, so a long answer to a hard question still finishes.
+ */
+const IDLE_MS = 30_000;
+const TOTAL_MS = 150_000;
 
 export const AI_INFO = 'nvidia-api-key';
 
@@ -56,40 +61,113 @@ function nvidiaDetail(body: string) {
   return body.slice(0, 300) || 'tanpa keterangan';
 }
 
+/** What one streamed chunk or a whole (non-streamed) answer may hold. */
+interface Choice {
+  delta?: { content?: string | null };
+  message?: { content?: string | null };
+  finish_reason?: string | null;
+}
+
 /**
  * One chat request. Returns the text of the first answer. Failures are logged with NVIDIA's status
  * and message, and the caller gets a short Indonesian message. No max_tokens is sent, so the model
- * can think and answer as long as it needs; the timeout is the only limit.
+ * can think and answer as long as it needs; the time limits above are the only limit.
  */
 export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
-  let res: Response;
+  const controller = new AbortController();
+  // Why the request was stopped, if it was. An object, so the timers' writes are seen below.
+  const stopped: { reason: 'idle' | 'total' | null } = { reason: null };
+  // Cancelled along with the request, so a read that is waiting on the stream ends too.
+  let reader: ReadableStreamDefaultReader<string> | undefined;
+  const stop = (reason: 'idle' | 'total') => {
+    stopped.reason = reason;
+    controller.abort();
+    reader?.cancel().catch(() => {});
+  };
+  const total = setTimeout(() => stop('total'), TOTAL_MS);
+  let idle = setTimeout(() => stop('idle'), IDLE_MS);
+  const touch = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => stop('idle'), IDLE_MS);
+  };
+  const failure = (err: unknown) => {
+    console.error('nvidia request did not finish', config.model, stopped.reason, err);
+    if (stopped.reason === 'idle') return new HttpError(504, `Model ${config.model} berhenti merespons (${IDLE_MS / 1000} detik tanpa jawaban). Coba lagi atau pilih model lain.`);
+    if (stopped.reason === 'total') return new HttpError(504, `Model ${config.model} terlalu lama menjawab (lebih dari ${TOTAL_MS / 1000} detik). Coba model lain.`);
+    return new HttpError(502, 'Ask AI tidak bisa menghubungi NVIDIA. Coba lagi.');
+  };
+
   try {
-    res = await fetch(`${API_BASE}/chat/completions`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${config.key}` },
-      body: JSON.stringify({ model: config.model, messages, temperature: 0.2 }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-  } catch (err) {
-    console.error('nvidia request did not finish', config.model, err);
-    throw new HttpError(504, `Model ${config.model} terlalu lama menjawab (lebih dari ${TIMEOUT_MS / 1000} detik). Coba model lain.`);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${config.key}` },
+        body: JSON.stringify({ model: config.model, messages, temperature: 0.2, stream: true }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      throw failure(err);
+    }
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('nvidia request failed', config.model, res.status, body);
+      if (res.status === 404) throw new HttpError(502, `NVIDIA 404 untuk ${config.model}: ${nvidiaDetail(body)}`);
+      if (res.status === 401 || res.status === 403) throw new HttpError(502, 'NVIDIA menolak key ini. Periksa lagi key-nya.');
+      if (res.status === 429) throw new HttpError(502, 'Batas pemakaian NVIDIA tercapai. Coba lagi nanti.');
+      throw new HttpError(502, `Ask AI sedang tidak bisa menjawab (NVIDIA ${res.status}). Coba lagi.`);
+    }
+    touch();
+
+    let answer = '';
+    let finish: string | null | undefined;
+    try {
+      if (!(res.headers.get('content-type') ?? '').includes('text/event-stream')) {
+        // The model answered in one piece instead of streaming.
+        const choice = ((await res.json()) as { choices?: Choice[] }).choices?.[0];
+        answer = choice?.message?.content ?? '';
+        finish = choice?.finish_reason;
+      } else {
+        reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+        let buffer = '';
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          touch();
+          buffer += value;
+          let newline: number;
+          while ((newline = buffer.indexOf('\n')) >= 0) {
+            const line = buffer.slice(0, newline).trim();
+            buffer = buffer.slice(newline + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') continue;
+            try {
+              const choice = (JSON.parse(payload) as { choices?: Choice[] }).choices?.[0];
+              if (choice?.delta?.content) answer += choice.delta.content;
+              if (choice?.finish_reason) finish = choice.finish_reason;
+            } catch {
+              // Not JSON (a keep-alive or a comment): skipped.
+            }
+          }
+        }
+      }
+    } catch (err) {
+      throw failure(err);
+    }
+    // A cancelled stream ends like a finished one: a time limit, not a short answer.
+    if (stopped.reason) throw failure('stream cancelled');
+
+    answer = answer.trim();
+    if (!answer) {
+      console.error('nvidia gave no answer', config.model, finish);
+      // A reasoning model can spend the whole budget thinking and stop before it writes the answer.
+      if (finish === 'length') throw new HttpError(502, `Model ${config.model} kehabisan token sebelum menjawab. Coba model lain.`);
+      throw new HttpError(502, 'Ask AI tidak memberi jawaban. Coba pertanyaan lain.');
+    }
+    return answer;
+  } finally {
+    clearTimeout(total);
+    clearTimeout(idle);
   }
-  if (!res.ok) {
-    const body = await res.text();
-    console.error('nvidia request failed', config.model, res.status, body);
-    if (res.status === 404) throw new HttpError(502, `NVIDIA 404 untuk ${config.model}: ${nvidiaDetail(body)}`);
-    if (res.status === 401 || res.status === 403) throw new HttpError(502, 'NVIDIA menolak key ini. Periksa lagi key-nya.');
-    if (res.status === 429) throw new HttpError(502, 'Batas pemakaian NVIDIA tercapai. Coba lagi nanti.');
-    throw new HttpError(502, `Ask AI sedang tidak bisa menjawab (NVIDIA ${res.status}). Coba lagi.`);
-  }
-  const data = (await res.json()) as { choices?: { message?: { content?: string | null }; finish_reason?: string }[] };
-  const choice = data.choices?.[0];
-  const answer = choice?.message?.content?.trim();
-  if (!answer) {
-    console.error('nvidia gave no answer', config.model, choice?.finish_reason);
-    // A reasoning model can spend the whole budget thinking and stop before it writes the answer.
-    if (choice?.finish_reason === 'length') throw new HttpError(502, `Model ${config.model} kehabisan token sebelum menjawab. Coba model lain.`);
-    throw new HttpError(502, 'Ask AI tidak memberi jawaban. Coba pertanyaan lain.');
-  }
-  return answer;
 }
