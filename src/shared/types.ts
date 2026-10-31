@@ -251,7 +251,9 @@ export type NotificationKind =
   | 'data_created'
   | 'data_updated'
   | 'data_deleted'
-  | 'bill_due';
+  | 'bill_due'
+  | 'ask_answered'
+  | 'ask_failed';
 
 /** One notification for the signed-in person. `data` holds the values its message is built from. */
 export interface AppNotification {

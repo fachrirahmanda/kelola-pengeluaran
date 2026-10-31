@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router';
+import { AskProvider } from './ask';
 import { AuthProvider, RequireAuth } from './auth';
 import { Layout } from './components/Layout';
 import { PrefsProvider } from './prefs';
@@ -23,7 +24,14 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/masuk" element={<Navigate to="/login" replace />} />
           <Route element={<RequireAuth />}>
-            <Route element={<Layout />}>
+            {/* Ask AI's conversation sits above the pages, so an answer keeps coming on another page. */}
+            <Route
+              element={
+                <AskProvider>
+                  <Layout />
+                </AskProvider>
+              }
+            >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               {/* Add expense lives on Home now: the add link opens its form there. */}

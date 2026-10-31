@@ -2,6 +2,7 @@ import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
 import type { RouteContext } from '../context';
 import { fillCalculations } from '../calc';
 import { HttpError, json, readJson } from '../http';
+import { notify } from '../notify';
 import { aiConfig, chat } from '../nvidia';
 
 // Ask AI: answers questions about the data owner's spending, from a summary this Worker builds. The
@@ -272,6 +273,8 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
   // the connection never sits idle, "part" as each question is answered, then "done" with the answer as saved,
   // or "error".
   const encoder = new TextEncoder();
+  /** The question as the notification quotes it. */
+  const shortQuestion = question.length > 80 ? `${question.slice(0, 79)}…` : question;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: Record<string, unknown>) => {
@@ -309,9 +312,13 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
           .run();
         const row = await env.DB.prepare('SELECT created_at FROM ai_questions WHERE id = ?').bind(id).first<{ created_at: string }>();
         send({ type: 'done', answer, id, createdAt: row?.created_at ?? '' });
+        // The person may be on another page by now: the bell tells them the answer is ready.
+        await notify(env, [actorId], 'ask_answered', { question: shortQuestion });
       } catch (error) {
         if (!(error instanceof HttpError)) console.error('ask failed', error);
-        send({ type: 'error', message: error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.' });
+        const message = error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.';
+        send({ type: 'error', message });
+        await notify(env, [actorId], 'ask_failed', { question: shortQuestion, message });
       } finally {
         clearInterval(heartbeat);
         controller.close();

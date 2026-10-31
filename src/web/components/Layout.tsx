@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useAsk } from '../ask';
 import { useAuth } from '../auth';
 import { api } from '../api';
 import { formatDate } from '../format';
@@ -10,7 +11,7 @@ import { ThemeSwitch } from './ThemeSwitch';
 import { Icon } from './Icon';
 import { UserMenu } from './UserMenu';
 import { Dialog } from './Dialog';
-import { NotificationList, useNotifications } from './Notifications';
+import { NotificationList, linkOf, useNotifications } from './Notifications';
 import { SideSlotContext } from './SidePanel';
 import { useLiveRefresh } from '../liveRefresh';
 
@@ -84,6 +85,7 @@ export function Layout() {
   const { bills } = useBills();
   const invitations = state?.invitations ?? [];
   const { items: notifications, unread, markRead } = useNotifications();
+  const { busy: asking } = useAsk();
   const openBills = bills?.open.length ?? 0;
   const [more, setMore] = useState(false);
   const [account, setAccount] = useState(false);
@@ -193,8 +195,9 @@ export function Layout() {
           <img src="/favicon.svg" alt="" width="26" height="26" />
           <span>Neraca</span>
         </NavLink>
-        <NavLink to="/ask" className="icon-btn icon-btn-plain" aria-label={t('nav.ask')} title={t('nav.ask')}>
+        <NavLink to="/ask" className="icon-btn icon-btn-plain ask-link" aria-label={asking ? t('ask.thinking') : t('nav.ask')} title={asking ? t('ask.thinking') : t('nav.ask')}>
           <Icon name="sparkle" size={18} />
+          {asking && <span className="ask-busy-dot" aria-hidden="true" />}
         </NavLink>
         <button
           type="button"
@@ -274,7 +277,15 @@ export function Layout() {
                 ))}
               </div>
             )}
-            {notifications.length > 0 && <NotificationList items={notifications} />}
+            {notifications.length > 0 && (
+              <NotificationList
+                items={notifications}
+                onOpen={(item) => {
+                  setNotices(false);
+                  navigate(linkOf(item));
+                }}
+              />
+            )}
           </>
         )}
       </Dialog>
