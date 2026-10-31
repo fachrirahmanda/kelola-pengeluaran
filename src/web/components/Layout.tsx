@@ -11,7 +11,7 @@ import { ThemeSwitch } from './ThemeSwitch';
 import { Icon } from './Icon';
 import { UserMenu } from './UserMenu';
 import { Dialog } from './Dialog';
-import { NotificationList, linkOf, useNotifications } from './Notifications';
+import { ActivityList, NotificationList, activityLink, initialsOf, linkOf, useNotifications } from './Notifications';
 import { SideSlotContext } from './SidePanel';
 import { useLiveRefresh } from '../liveRefresh';
 
@@ -71,12 +71,6 @@ const GROUP_ORDER: Tab['group'][] = ['home', 'history', 'tools', 'account'];
 
 const COLLAPSED_KEY = 'neraca.sidebar';
 
-function initialsOf(name: string, email: string): string {
-  const source = name.trim() || email.split('@')[0];
-  const parts = source.split(/[\s._-]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
-}
-
 export function Layout() {
   const { user, signOut } = useAuth();
   const { t, lang } = usePrefs();
@@ -90,6 +84,8 @@ export function Layout() {
   const [more, setMore] = useState(false);
   const [account, setAccount] = useState(false);
   const [notices, setNotices] = useState(false);
+  // The bell's panel: notifications for this person, or everyone's activity in the data set.
+  const [noticeTab, setNoticeTab] = useState<'notifications' | 'activity'>('notifications');
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(COLLAPSED_KEY) === 'collapsed';
@@ -201,7 +197,7 @@ export function Layout() {
         </NavLink>
         <button
           type="button"
-          className="icon-btn icon-btn-plain"
+          className="icon-btn icon-btn-plain notif-btn"
           onClick={() => {
             setNotices(true);
             markRead();
@@ -210,7 +206,7 @@ export function Layout() {
           title={t('nav.notifications')}
         >
           <Icon name="bell" size={18} />
-          {invitations.length + unread > 0 && <span className="badge">{invitations.length + unread}</span>}
+          {invitations.length + unread > 0 && <span className="notif-count">{invitations.length + unread}</span>}
         </button>
         {user && (
           <button type="button" className="ds-mobile-avatar" onClick={() => setAccount(true)} aria-label={t('nav.account')}>
@@ -255,8 +251,23 @@ export function Layout() {
         </nav>
       </Dialog>
 
-      <Dialog open={notices} onClose={() => setNotices(false)} title={t('nav.notifications')} className="ds-notif-sheet">
-        {invitations.length === 0 && notifications.length === 0 ? (
+      <Dialog open={notices} onClose={() => setNotices(false)} title={t('nav.notifications')} className="notif-drawer">
+        <div className="tabs notif-tabs" role="tablist" aria-label={t('nav.notifications')}>
+          <button type="button" role="tab" className="tab" aria-selected={noticeTab === 'notifications'} onClick={() => setNoticeTab('notifications')}>
+            {t('notif.tabNotifications')}
+          </button>
+          <button type="button" role="tab" className="tab" aria-selected={noticeTab === 'activity'} onClick={() => setNoticeTab('activity')}>
+            {t('notif.tabActivity')}
+          </button>
+        </div>
+        {noticeTab === 'activity' ? (
+          <ActivityList
+            onOpen={(item) => {
+              setNotices(false);
+              navigate(activityLink(item));
+            }}
+          />
+        ) : invitations.length === 0 && notifications.length === 0 ? (
           <p className="text-sm text-muted">{t('nav.noNotifications')}</p>
         ) : (
           <>

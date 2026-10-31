@@ -3,6 +3,7 @@ import { isBilledKind, type OpenBill, type PaidBill, type SourceKind } from '../
 import type { Env } from '../env';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
+import { recordActivity } from '../notify';
 import { debitSourceOf } from './sources';
 
 const CHUNK = 50;
@@ -96,7 +97,7 @@ export async function listBills({ env, userId }: RouteContext) {
  * transactions count as spending on the payment date, and the bill is kept as paid history. With
  * paidFromId (a savings account), the bill's total comes off that account's balance.
  */
-export async function payBill({ request, env, userId }: RouteContext) {
+export async function payBill({ request, env, userId, actorId }: RouteContext) {
   const body = await readJson(request);
   if (typeof body.sourceId !== 'string') throw new HttpError(400, 'Pilih kartu kredit atau paylater');
   if (typeof body.period !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.period)) throw new HttpError(400, 'Periode tagihan tidak valid');
@@ -104,9 +105,9 @@ export async function payBill({ request, env, userId }: RouteContext) {
   const period = body.period;
   const paidOn = body.paidOn;
 
-  const source = await env.DB.prepare('SELECT id, kind, closing_day FROM payment_sources WHERE id = ? AND user_id = ?')
+  const source = await env.DB.prepare('SELECT id, name, kind, closing_day FROM payment_sources WHERE id = ? AND user_id = ?')
     .bind(body.sourceId, userId)
-    .first<{ id: string; kind: SourceKind; closing_day: number | null }>();
+    .first<{ id: string; name: string; kind: SourceKind; closing_day: number | null }>();
   if (!source || !isBilledKind(source.kind) || source.closing_day === null) throw new HttpError(400, 'Pilih kartu kredit atau paylater');
 
   const { results: unpaid } = await env.DB.prepare(
@@ -161,5 +162,6 @@ export async function payBill({ request, env, userId }: RouteContext) {
     paidOn,
     paidFromName: paidFrom?.name ?? null,
   };
+  await recordActivity(env, userId, actorId, 'bill_paid', { source: source.name, amount: total });
   return json({ bill }, 201);
 }

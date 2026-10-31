@@ -2231,6 +2231,64 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
+  /* A ring in the page colour keeps it apart from the bell under it. */
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+/* The top bar's bell is a larger button: the count sits on the bell's shoulder, not the button's corner. */
+.notif-btn:not(.icon-btn-sm) .notif-count {
+  top: 4px;
+  right: 3px;
+}
+
+/* The bell's panel slides in from the right edge at full height, like the sidebar, on every screen. It has
+   two tabs: notifications for this person, and the activity of everyone in the data set. */
+.dialog.notif-drawer {
+  /* On close it slides back out to the right (motion.ts reads --leave). */
+  --leave: right;
+  box-sizing: border-box;
+  width: min(400px, 88vw);
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  max-height: none;
+  margin: 0 0 0 auto;
+  border-radius: 0;
+  box-shadow: -1px 0 0 var(--separator), -16px 0 48px rgb(0 0 0 / 0.18);
+}
+
+.dialog.notif-drawer[open] {
+  display: flex;
+  flex-direction: column;
+  animation: filter-sheet-in 0.28s var(--ease);
+}
+
+.notif-drawer .dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.notif-tabs {
+  margin-bottom: 12px;
+}
+
+.activity-avatar {
+  overflow: hidden;
+}
+
+.activity-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog.notif-drawer[open] {
+    animation: none;
+  }
 }
 
 /* Reset data (Profile): what goes, as a short list in the confirmation. */

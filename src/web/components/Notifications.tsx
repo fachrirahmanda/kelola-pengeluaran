@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 import { useLocation, useNavigate } from 'react-router';
 import { api } from '../api';
 import { NOTIFICATIONS_CHANGED } from '../ask';
-import { formatDate } from '../format';
+import { formatDate, localeOf } from '../format';
 import { usePrefs } from '../prefs';
-import type { AppNotification, NotificationFeed } from '../../shared/types';
+import type { ActivityItem, AppNotification, NotificationFeed } from '../../shared/types';
 import { Icon } from './Icon';
 
 // Notifications: the list behind the bell, and a toast for each new one. The server keeps them (see
@@ -17,6 +17,18 @@ const POPUPS_AT_ONCE = 3;
 const LATEST = 30;
 
 type Prefs = Pick<ReturnType<typeof usePrefs>, 't' | 'money' | 'lang'>;
+
+/** A person's initials, from their name or else their email. */
+export function initialsOf(name: string, email: string): string {
+  const source = name.trim() || email.split('@')[0];
+  const parts = source.split(/[\s._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
+/** When something happened, as a short date and time in the person's own time zone. */
+function whenOf(time: number, lang: Prefs['lang']) {
+  return new Intl.DateTimeFormat(localeOf(lang), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(time);
+}
 
 /** The sentence for one notification, in the language the app is shown in. */
 export function notificationText(item: AppNotification, { t, money, lang }: Prefs): string {
@@ -171,7 +183,95 @@ export function NotificationList({ items, onOpen }: { items: AppNotification[]; 
           </span>
           <div className="ds-notif-body">
             <span className="ds-notif-text">{notificationText(item, prefs)}</span>
-            <span className="ds-notif-meta">{formatDate(new Date(item.createdAt + 7 * 3600 * 1000).toISOString().slice(0, 10), prefs.lang)}</span>
+            <span className="ds-notif-meta">{whenOf(item.createdAt, prefs.lang)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The sentence for one action in the data set: "You …" for the signed-in person, else the member's name. */
+function activityText(item: ActivityItem, { t, money }: Prefs): string {
+  const d = item.data;
+  const who = item.mine ? t('activity.you') : item.actor.name;
+  const what = d.note ? `“${d.note}”` : t('activity.aTransaction');
+  const amount = money(Number(d.amount));
+  switch (item.kind) {
+    case 'tx_created':
+      return t('activity.txCreated', { who, what, amount });
+    case 'tx_updated':
+      return t('activity.txUpdated', { who, what, amount });
+    case 'tx_deleted':
+      return t('activity.txDeleted', { who, what, amount });
+    case 'bill_paid':
+      return t('activity.billPaid', { who, source: String(d.source), amount });
+    case 'income_added':
+      return t('activity.incomeAdded', { who, source: String(d.source), amount });
+    case 'invite_sent':
+      return t('activity.inviteSent', { who, email: String(d.email) });
+    case 'member_joined':
+      return t('activity.memberJoined', { who });
+    case 'member_left':
+      return t('activity.memberLeft', { who });
+    case 'member_removed':
+      return t('activity.memberRemoved', { who, name: String(d.name) });
+  }
+}
+
+/** The page an action is about. */
+export function activityLink(item: ActivityItem): string {
+  switch (item.kind) {
+    case 'tx_created':
+    case 'tx_updated':
+    case 'tx_deleted':
+      return '/transactions';
+    case 'bill_paid':
+      return '/bills';
+    case 'income_added':
+      return '/sources';
+    case 'invite_sent':
+    case 'member_joined':
+    case 'member_left':
+    case 'member_removed':
+      return '/settings?tab=workspace';
+  }
+}
+
+/**
+ * The Activity tab: what the signed-in person and the members did in the data set, newest first. Loaded
+ * each time the tab shows, so it is current.
+ */
+export function ActivityList({ onOpen }: { onOpen: (item: ActivityItem) => void }) {
+  const prefs = usePrefs();
+  const [items, setItems] = useState<ActivityItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<{ items: ActivityItem[] }>('/activity')
+      .then((data) => setItems(data.items))
+      .catch(() => setFailed(true));
+  }, []);
+
+  if (failed) return <p className="text-sm text-muted">{prefs.t('common.error.network')}</p>;
+  if (items === null) return <p className="text-sm text-muted">{prefs.t('common.loading')}</p>;
+  if (items.length === 0) return <p className="text-sm text-muted">{prefs.t('activity.empty')}</p>;
+  const onKey = (item: ActivityItem) => (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    onOpen(item);
+  };
+  return (
+    <div className="ds-notif-list">
+      {items.map((item) => (
+        <div key={item.id} className="ds-notif-item notif-link" role="button" tabIndex={0} onClick={() => onOpen(item)} onKeyDown={onKey(item)}>
+          <span className="avatar avatar-sm activity-avatar" aria-hidden="true">
+            {item.actor.avatarUrl ? <img src={item.actor.avatarUrl} alt="" referrerPolicy="no-referrer" /> : initialsOf(item.actor.name, item.actor.name)}
+          </span>
+          <div className="ds-notif-body">
+            <span className="ds-notif-text">{activityText(item, prefs)}</span>
+            <span className="ds-notif-meta">{whenOf(item.createdAt, prefs.lang)}</span>
           </div>
         </div>
       ))}

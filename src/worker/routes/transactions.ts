@@ -3,7 +3,7 @@ import { METHODS, isBilledKind, type Method, type SourceKind, type Transaction, 
 import { billPeriodOf } from '../../shared/billing';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
-import { notifyDataChange } from '../notify';
+import { notifyDataChange, recordActivity } from '../notify';
 import { balanceOf } from './sources';
 
 // Upper bound for one transaction (Rp 1 triliun). Guards against typos and unsafe integers.
@@ -182,6 +182,7 @@ export async function createTransaction({ request, env, userId, actorId }: Route
     .bind(id, userId, input.occurredOn, input.occurredTime, input.amount, input.categoryId, input.note, input.method, input.sourceId, posting.status, posting.postedOn)
     .run();
   await notifyDataChange(env, userId, actorId, 'data_created', input.amount);
+  await recordActivity(env, userId, actorId, 'tx_created', { amount: input.amount, note: input.note });
   return json({ transaction: { id, ...input, ...posting } }, 201);
 }
 
@@ -219,14 +220,15 @@ export async function updateTransaction({ request, env, userId, actorId, params 
     .run();
 
   await notifyDataChange(env, userId, actorId, 'data_updated', input.amount);
+  await recordActivity(env, userId, actorId, 'tx_updated', { amount: input.amount, note: input.note });
   return json({ transaction: { id: params.id, ...input, ...posting } });
 }
 
 /** DELETE /api/transactions/:id. A credit transaction in a paid bill cannot be deleted. */
 export async function deleteTransaction({ env, userId, actorId, params }: RouteContext) {
-  const existing = await env.DB.prepare('SELECT method, status, amount FROM transactions WHERE id = ? AND user_id = ?')
+  const existing = await env.DB.prepare('SELECT method, status, amount, note FROM transactions WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)
-    .first<{ method: Method; status: TransactionStatus; amount: number }>();
+    .first<{ method: Method; status: TransactionStatus; amount: number; note: string }>();
   if (!existing) throw new HttpError(404, 'Transaksi tidak ditemukan');
   if (existing.method === 'credit' && existing.status === 'posted') {
     throw new HttpError(409, 'Transaksi ini sudah masuk tagihan yang lunas dan tidak bisa dihapus.');
@@ -239,5 +241,6 @@ export async function deleteTransaction({ env, userId, actorId, params }: RouteC
   await env.DB.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').bind(params.id, userId).run();
   if (files.results.length) await deleteFiles(env, files.results.map((row) => row.drive_file_id));
   await notifyDataChange(env, userId, actorId, 'data_deleted', existing.amount);
+  await recordActivity(env, userId, actorId, 'tx_deleted', { amount: existing.amount, note: existing.note });
   return json({ ok: true });
 }

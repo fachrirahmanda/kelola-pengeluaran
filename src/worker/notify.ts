@@ -1,5 +1,5 @@
 import type { Env } from './env';
-import type { NotificationKind } from '../shared/types';
+import type { ActivityKind, NotificationKind } from '../shared/types';
 import { todayInWib } from './routes/ask';
 import { openBillsOf } from './routes/bills';
 
@@ -44,6 +44,20 @@ export async function notify(env: Env, userIds: string[], kind: NotificationKind
     );
   } catch (error) {
     console.error('notify failed', kind, error);
+  }
+}
+
+/**
+ * Records something a person did in a data set (see migrations/0023), for the bell's Activity tab. Like
+ * notify, it never fails the action; the error is logged instead.
+ */
+export async function recordActivity(env: Env, ownerId: string, actorId: string, kind: ActivityKind, data: Record<string, string | number>) {
+  try {
+    await env.DB.prepare('INSERT INTO activity (id, owner_id, actor_id, kind, data, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), ownerId, actorId, kind, JSON.stringify(data), Date.now())
+      .run();
+  } catch (error) {
+    console.error('activity failed', kind, error);
   }
 }
 

@@ -255,6 +255,27 @@ export type NotificationKind =
   | 'ask_answered'
   | 'ask_failed';
 
+export type ActivityKind =
+  | 'tx_created'
+  | 'tx_updated'
+  | 'tx_deleted'
+  | 'bill_paid'
+  | 'income_added'
+  | 'invite_sent'
+  | 'member_joined'
+  | 'member_left'
+  | 'member_removed';
+
+/** One thing someone did in the data set: the signed-in person (mine) or another member. */
+export interface ActivityItem {
+  id: string;
+  kind: ActivityKind;
+  data: Record<string, string | number>;
+  createdAt: number;
+  actor: { id: string; name: string; avatarUrl: string | null };
+  mine: boolean;
+}
+
 /** One notification for the signed-in person. `data` holds the values its message is built from. */
 export interface AppNotification {
   id: string;
