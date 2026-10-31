@@ -251,6 +251,14 @@ Question: ${question}` },
       };
       let streamed = '';
       let thinking = false;
+      // Text is sent in batches, at most every 250 ms: each line sent costs CPU time, and the Worker has little.
+      let unsent = '';
+      let batch: ReturnType<typeof setTimeout> | undefined;
+      const sendText = () => {
+        batch = undefined;
+        if (unsent) send({ type: 'text', text: unsent });
+        unsent = '';
+      };
       // While nothing is written yet (queued, or a long think), a "thinking" line every 15 seconds keeps the
       // connection to the page from looking idle.
       const heartbeat = setInterval(() => {
@@ -266,12 +274,13 @@ Question: ${question}` },
           },
           onText: (text) => {
             streamed += text;
-            const ready = calculations.push(text);
-            if (ready) send({ type: 'text', text: ready });
+            unsent += calculations.push(text);
+            if (unsent && !batch) batch = setTimeout(sendText, 250);
           },
         });
-        const rest = calculations.flush();
-        if (rest) send({ type: 'text', text: rest });
+        if (batch) clearTimeout(batch);
+        unsent += calculations.flush();
+        sendText();
         // Stored with the results filled in, so the history and the next question's context show numbers.
         const answer = fillCalculations(raw, localeOf(question, raw));
         const id = crypto.randomUUID();
@@ -284,6 +293,7 @@ Question: ${question}` },
         if (!(error instanceof HttpError)) console.error('ask failed', error);
         send({ type: 'error', message: error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.' });
       } finally {
+        if (batch) clearTimeout(batch);
         clearInterval(heartbeat);
         controller.close();
       }

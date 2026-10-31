@@ -117,14 +117,27 @@ export function evaluate(expression: string, locale = 'en-US'): number {
 }
 
 /**
+ * A result with the locale's separators and at most two decimals: 17.395.000 and 888.487,89 for id-ID,
+ * 17,395,000 and 888,487.89 otherwise. Written by hand rather than with Intl.NumberFormat, whose first use
+ * loads locale data and costs more CPU time than the Worker can spare.
+ */
+function formatNumber(value: number, locale: string) {
+  const [group, point] = locale === 'id-ID' ? ['.', ','] : [',', '.'];
+  const rounded = Math.round(value * 100) / 100;
+  const [whole, fraction] = Math.abs(rounded).toFixed(2).split('.');
+  const digits = fraction.replace(/0+$/, '');
+  return `${rounded < 0 ? '-' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, group)}${digits ? point + digits : ''}`;
+}
+
+/**
  * Replaces each [[= expression]] in an answer with its result, written with the locale's separators and
  * at most two decimals. An expression that cannot be worked out is left as plain text, without brackets.
  */
 export function fillCalculations(answer: string, locale: string): string {
-  const format = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+  if (!answer.includes('[[')) return answer;
   return answer.replace(PLACEHOLDER, (_, expression: string) => {
     try {
-      return format.format(evaluate(expression, locale));
+      return formatNumber(evaluate(expression, locale), locale);
     } catch (error) {
       console.error('ask calc failed', expression, String(error));
       return expression;
@@ -153,11 +166,11 @@ export function calculationStream(locale: () => string) {
       if (held.length - cut > HOLD_LIMIT) cut = held.length;
       const ready = held.slice(0, cut);
       held = held.slice(cut);
-      return ready ? fillCalculations(ready, locale()) : '';
+      return ready.includes('[[') ? fillCalculations(ready, locale()) : ready;
     },
     /** Whatever was kept back, once the answer has ended. */
     flush(): string {
-      const rest = held ? fillCalculations(held, locale()) : '';
+      const rest = held.includes('[[') ? fillCalculations(held, locale()) : held;
       held = '';
       return rest;
     },
