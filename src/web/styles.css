@@ -1903,6 +1903,33 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 
 /* Ask AI: the chat. Your questions sit on the right, the answers on the left. */
+/* The Ask AI composer stays in view at the bottom of the screen, over a band of the page colour so the
+   conversation scrolls behind it. On phones it sits above the bottom bar (whose top is about 75px up), and
+   while the person types the bar is hidden and the composer moves down to the keyboard. */
+.ask-dock {
+  position: sticky;
+  bottom: 16px;
+  z-index: 2;
+  padding-top: 12px;
+  background: linear-gradient(to bottom, transparent, var(--bg) 12px);
+  /* Fills the gap under the composer too, down to the bottom bar. */
+  box-shadow: 0 16px 0 var(--bg);
+}
+
+@media (max-width: 720px) {
+  .ask-dock {
+    bottom: 86px;
+  }
+
+  html.is-typing .ds-bottom-nav {
+    display: none;
+  }
+
+  html.is-typing .ask-dock {
+    bottom: 8px;
+  }
+}
+
 /* The Ask AI composer: a text box that grows with what is typed, with the send button inside it. */
 .ask-composer {
   display: flex;
