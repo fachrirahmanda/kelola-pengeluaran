@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { PART_BREAK, useAsk } from '../ask';
 import { Icon } from '../components/Icon';
 import { formatDate, localeOf } from '../format';
@@ -32,6 +33,22 @@ export function AskPage() {
   const composer = useRef<HTMLTextAreaElement>(null);
 
   useEffect(load, [load]);
+
+  // Opened from a notification (?answer=<id>, or "last"): scroll to that question and its answer and mark it
+  // for a moment. The parameter is then dropped, so later updates do not scroll again.
+  const [params, setParams] = useSearchParams();
+  const target = params.get('answer');
+  useEffect(() => {
+    if (!target || !loaded || history.length === 0) return;
+    const id = target === 'last' ? history[history.length - 1].id : target;
+    const element = document.getElementById(`ask-${id}`) ?? document.getElementById(`ask-${history[history.length - 1].id}`);
+    setParams({}, { replace: true });
+    if (!element) return;
+    element.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    for (const marked of document.querySelectorAll('.ask-exchange.is-highlight')) marked.classList.remove('is-highlight');
+    element.classList.add('is-highlight');
+    window.setTimeout(() => element.classList.remove('is-highlight'), 2000);
+  }, [target, loaded, history, setParams]);
 
   // While the composer is in use on a phone, the bottom bar is hidden (see .is-typing in styles.css): iOS lifts
   // it above the keyboard, where it covers the conversation.
@@ -108,7 +125,7 @@ export function AskPage() {
           const day = dayOf(item.createdAt);
           const newDay = index === 0 || dayOf(history[index - 1].createdAt) !== day;
           return (
-            <div key={item.id} className="stack">
+            <div key={item.id} id={`ask-${item.id}`} className="stack ask-exchange">
               {newDay && <p className="ask-day">{day === today ? t('ask.today') : formatDate(day, lang)}</p>}
               <div className="ask-message is-user">
                 <p>{item.question}</p>

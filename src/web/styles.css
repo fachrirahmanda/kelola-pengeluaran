@@ -2014,6 +2014,25 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
+/* A question and its answer. Opened from a notification, the page scrolls to it (clear of the top bar) and
+   marks it with a tint that fades. */
+.ask-exchange {
+  scroll-margin-top: 80px;
+  border-radius: 16px;
+}
+
+.ask-exchange.is-highlight {
+  animation: ask-highlight 2s var(--ease);
+}
+
+@keyframes ask-highlight {
+  0%,
+  40% {
+    background: var(--fill-strong);
+    box-shadow: 0 0 0 8px var(--fill-strong);
+  }
+}
+
 /* While Ask AI is answering, a pulsing dot on its button in the top bar, seen from any page. */
 .ask-link {
   position: relative;
@@ -2065,7 +2084,8 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 @media (prefers-reduced-motion: reduce) {
   .ask-pulse,
-  .ask-busy-dot {
+  .ask-busy-dot,
+  .ask-exchange.is-highlight {
     animation: none;
   }
 }

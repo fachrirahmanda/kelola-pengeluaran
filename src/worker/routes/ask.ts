@@ -313,7 +313,8 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
         const row = await env.DB.prepare('SELECT created_at FROM ai_questions WHERE id = ?').bind(id).first<{ created_at: string }>();
         send({ type: 'done', answer, id, createdAt: row?.created_at ?? '' });
         // The person may be on another page by now: the bell tells them the answer is ready.
-        await notify(env, [actorId], 'ask_answered', { question: shortQuestion });
+        // The answer's id, so the notification opens the Ask AI page at this answer.
+        await notify(env, [actorId], 'ask_answered', { question: shortQuestion, id });
       } catch (error) {
         if (!(error instanceof HttpError)) console.error('ask failed', error);
         const message = error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab. Coba lagi.';
