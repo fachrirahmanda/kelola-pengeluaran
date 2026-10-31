@@ -198,6 +198,8 @@ const MESSAGES = {
   'ask.placeholder': { en: 'Ask a question…', id: 'Tulis pertanyaan…' },
   'ask.send': { en: 'Send', id: 'Kirim' },
   'ask.thinking': { en: 'Thinking…', id: 'Sedang menjawab…' },
+  'ask.reasoning': { en: 'Working it out…', id: 'Sedang berpikir…' },
+  'ask.seconds': { en: '{n}s', id: '{n} dtk' },
   'ask.failed': { en: 'Ask AI could not answer. Try again.', id: 'Ask AI tidak bisa menjawab. Coba lagi.' },
   'ask.clear': { en: 'Clear history', id: 'Hapus riwayat' },
   'ask.clearConfirm': { en: 'Clear all your questions and answers?', id: 'Hapus semua pertanyaan dan jawabanmu?' },

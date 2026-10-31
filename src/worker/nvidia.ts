@@ -63,17 +63,24 @@ function nvidiaDetail(body: string) {
 
 /** What one streamed chunk or a whole (non-streamed) answer may hold. */
 interface Choice {
-  delta?: { content?: string | null };
+  delta?: { content?: string | null; reasoning_content?: string | null; reasoning?: string | null };
   message?: { content?: string | null };
   finish_reason?: string | null;
+}
+
+/** Told as an answer streams in: the model is thinking (reasoning models), or a piece of the answer. */
+export interface ChatEvents {
+  onThinking?: () => void;
+  onText?: (text: string) => void;
 }
 
 /**
  * One chat request. Returns the text of the first answer. Failures are logged with NVIDIA's status
  * and message, and the caller gets a short Indonesian message. No max_tokens is sent, so the model
- * can think and answer as long as it needs; the time limits above are the only limit.
+ * can think and answer as long as it needs; the time limits above are the only limit. `events` hears
+ * the answer as it arrives, for a page that shows it while it is being written.
  */
-export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
+export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string }[], events: ChatEvents = {}) {
   const controller = new AbortController();
   // Why the request was stopped, if it was. An object, so the timers' writes are seen below.
   const stopped: { reason: 'idle' | 'total' | null } = { reason: null };
@@ -127,6 +134,7 @@ export async function chat(config: AiConfig, messages: { role: 'system' | 'user'
         const choice = ((await res.json()) as { choices?: Choice[] }).choices?.[0];
         answer = choice?.message?.content ?? '';
         finish = choice?.finish_reason;
+        if (answer) events.onText?.(answer);
       } else {
         reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
         let buffer = '';
@@ -144,7 +152,11 @@ export async function chat(config: AiConfig, messages: { role: 'system' | 'user'
             if (payload === '[DONE]') continue;
             try {
               const choice = (JSON.parse(payload) as { choices?: Choice[] }).choices?.[0];
-              if (choice?.delta?.content) answer += choice.delta.content;
+              if (choice?.delta?.reasoning_content || choice?.delta?.reasoning) events.onThinking?.();
+              if (choice?.delta?.content) {
+                answer += choice.delta.content;
+                events.onText?.(choice.delta.content);
+              }
               if (choice?.finish_reason) finish = choice.finish_reason;
             } catch {
               // Not JSON (a keep-alive or a comment): skipped.

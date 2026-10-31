@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, ApiRequestError } from '../api';
+import { api, ApiRequestError, postStream } from '../api';
 import { Icon } from '../components/Icon';
 import { formatDate, localeOf } from '../format';
 import { usePrefs } from '../prefs';
@@ -19,6 +19,13 @@ interface Exchange {
 
 const EXAMPLES: MessageKey[] = ['ask.example1', 'ask.example2', 'ask.example3', 'ask.example4'];
 
+/** What the server sends while it answers (see routes/ask.ts). */
+type AskEvent =
+  | { type: 'thinking' }
+  | { type: 'text'; text: string }
+  | { type: 'done'; answer: string; id: string; createdAt: string }
+  | { type: 'error'; message: string };
+
 /** The server's UTC "YYYY-MM-DD HH:MM:SS" as a Date. */
 function dateOf(createdAt: string) {
   return new Date(`${createdAt.replace(' ', 'T')}Z`);
@@ -37,6 +44,17 @@ export function AskPage() {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // While an answer is on its way: whether the model is thinking, and seconds since the question was sent.
+  const [thinking, setThinking] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (!busy) return;
+    setSeconds(0);
+    const started = Date.now();
+    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [busy]);
 
   useEffect(() => {
     api
@@ -51,12 +69,23 @@ export function AskPage() {
     if (!trimmed || busy) return;
     setError('');
     setBusy(true);
+    setThinking(false);
     const pending: Exchange = { id: `pending-${Date.now()}`, question: trimmed, answer: '', createdAt: '' };
     setHistory((list) => [...list, pending]);
     setQuestion('');
+    const update = (change: (item: Exchange) => Exchange) => setHistory((list) => list.map((item) => (item.id === pending.id ? change(item) : item)));
     try {
-      const data = await api.post<{ answer: string; id: string; createdAt: string }>('/ask', { question: trimmed, currency });
-      setHistory((list) => list.map((item) => (item.id === pending.id ? { ...pending, ...data } : item)));
+      let finished = false;
+      await postStream<AskEvent>('/ask', { question: trimmed, currency }, (event) => {
+        if (event.type === 'thinking') setThinking(true);
+        else if (event.type === 'text') update((item) => ({ ...item, answer: item.answer + event.text }));
+        else if (event.type === 'done') {
+          finished = true;
+          update(() => ({ id: event.id, question: trimmed, answer: event.answer, createdAt: event.createdAt }));
+        } else throw new ApiRequestError(event.message, 502);
+      });
+      // The connection closed before the answer was complete.
+      if (!finished) throw new Error('incomplete');
     } catch (requestError) {
       setHistory((list) => list.filter((item) => item.id !== pending.id));
       setQuestion(trimmed);
@@ -125,7 +154,10 @@ export function AskPage() {
                     <Icon name="sparkle" size={14} />
                   </span>
                   <div>
-                    <p>{item.answer}</p>
+                    <p>
+                      {item.answer}
+                      {busy && !item.createdAt && <span className="ask-caret" aria-hidden="true" />}
+                    </p>
                     {item.createdAt && <time className="ask-time">{timeFormat.format(dateOf(item.createdAt))}</time>}
                   </div>
                 </div>
@@ -133,7 +165,12 @@ export function AskPage() {
             </div>
           );
         })}
-        {busy && <p className="hint">{t('ask.thinking')}</p>}
+        {busy && !history[history.length - 1]?.answer && (
+          <p className="hint ask-status" role="status">
+            <span className="ask-pulse" aria-hidden="true" />
+            {thinking ? t('ask.reasoning') : t('ask.thinking')} · {t('ask.seconds', { n: seconds })}
+          </p>
+        )}
         {error && (
           <div className="alert alert-danger" role="alert">
             <div className="alert-content">
