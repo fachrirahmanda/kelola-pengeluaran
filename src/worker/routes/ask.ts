@@ -69,6 +69,27 @@ const localeOf = (question: string, answer: string) => (/Rp\s?(\d|\[\[)/.test(an
 /** Currencies the app offers (src/web/format.ts). Anything else falls back to IDR. */
 const CURRENCIES = ['IDR', 'USD', 'EUR', 'GBP', 'SGD', 'MYR', 'JPY'];
 
+/** Between the answers to the questions in one message, in the saved answer. The page shows each as its own reply. */
+export const PART_BREAK = '\u001e';
+/** A message with more questions than this is answered whole, to keep the wait short. */
+const MAX_PARTS = 4;
+
+/**
+ * The questions in one message, to answer one at a time: the text is split after each "?". Text without a "?"
+ * stays with the question before it (or after it, at the start), and a piece of under three words joins the
+ * one before it. A message with one question, or none, stays whole.
+ */
+export function partsOf(message: string): string[] {
+  const pieces = (message.match(/[^?]*\?+|[^?]+$/g) ?? []).map((piece) => piece.trim()).filter(Boolean);
+  const parts: string[] = [];
+  for (const piece of pieces) {
+    const short = piece.split(/\s+/).length < 3;
+    if (parts.length && (!piece.endsWith('?') || short)) parts[parts.length - 1] += ` ${piece}`;
+    else parts.push(piece);
+  }
+  return parts.length > 1 && parts.length <= MAX_PARTS ? parts : [message];
+}
+
 /** Today's date in Jakarta (WIB), as YYYY-MM-DD. */
 export function todayInWib() {
   return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
@@ -227,19 +248,27 @@ export async function askAi({ request, env, userId, actorId }: RouteContext) {
     .all<{ question: string; answer: string }>();
   const earlier = recent.results.reverse().flatMap((row) => [
     { role: 'user' as const, content: row.question },
-    { role: 'assistant' as const, content: row.answer },
+    { role: 'assistant' as const, content: row.answer.replaceAll(PART_BREAK, '\n\n') },
   ]);
-  const messages: Parameters<typeof chat>[1] = [
+  // Several questions in one message are answered in turn, in one conversation: each answer is in view when
+  // the next is asked, and the summary is sent once.
+  const parts = partsOf(question);
+  const conversation: Parameters<typeof chat>[1] = [
     { role: 'system', content: `${SYSTEM_PROMPT} The person’s currency is ${currency}.\n\n${APP_GUIDE}\n\n${FINANCE_GUIDE}\n\n${CALCULATOR}` },
     ...earlier,
-    { role: 'user', content: `${summary}
-
-Question: ${question}` },
   ];
+  const promptFor = (index: number) => {
+    if (parts.length === 1) return `${summary}\n\nQuestion: ${question}`;
+    if (index === 0) {
+      return `${summary}\n\nThe person’s message: ${question}\n\nIt has ${parts.length} questions, answered one at a time. Answer only question 1 now: ${parts[0]}`;
+    }
+    return `Now answer only question ${index + 1}: ${parts[index]}`;
+  };
 
-  // The answer comes whole (see nvidia.ts), but it can take a minute or two. Meanwhile the page gets one JSON
-  // object per line: "thinking" every 15 seconds, so the connection never sits idle, then "done" with the
-  // answer as saved, or "error".
+  // Each answer comes whole (see nvidia.ts), but it can take a minute or two. Meanwhile the page gets one JSON
+  // object per line: "parts" with the number of questions (when more than one), "thinking" every 15 seconds so
+  // the connection never sits idle, "part" as each question is answered, then "done" with the answer as saved,
+  // or "error".
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -252,9 +281,26 @@ Question: ${question}` },
       };
       const heartbeat = setInterval(() => send({ type: 'thinking' }), 15_000);
       try {
-        const raw = await chat(config, messages);
-        // Stored with the results filled in, so the history and the next question's context show numbers.
-        const answer = fillCalculations(raw, localeOf(question, raw));
+        if (parts.length > 1) send({ type: 'parts', total: parts.length });
+        const answers: string[] = [];
+        for (let index = 0; index < parts.length; index++) {
+          conversation.push({ role: 'user', content: promptFor(index) });
+          try {
+            const raw = await chat(config, conversation);
+            // Kept with the results filled in, so the next question, the history and later context see numbers.
+            const answer = fillCalculations(raw, localeOf(question, raw));
+            conversation.push({ role: 'assistant', content: answer });
+            answers.push(answer);
+          } catch (error) {
+            // The first question failing fails the message. A later one keeps the answers already given.
+            if (index === 0) throw error;
+            const reason = error instanceof HttpError ? error.message : 'Ask AI sedang tidak bisa menjawab.';
+            answers.push(`Pertanyaan ini belum bisa dijawab. ${reason}`);
+            break;
+          }
+          if (parts.length > 1) send({ type: 'part', index, total: parts.length, answer: answers[index] });
+        }
+        const answer = answers.join(PART_BREAK);
         const id = crypto.randomUUID();
         await env.DB.prepare('INSERT INTO ai_questions (id, user_id, day, question, answer) VALUES (?, ?, ?, ?, ?)')
           .bind(id, actorId, day, question, answer)

@@ -1903,15 +1903,58 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 
 /* Ask AI: the chat. Your questions sit on the right, the answers on the left. */
-.ask-form {
+/* The Ask AI composer: a text box that grows with what is typed, with the send button inside it. */
+.ask-composer {
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 22px;
+  background: var(--fill);
+  box-shadow: inset 0 0 0 1px var(--separator);
 }
 
-.ask-form .input {
+.ask-composer:focus-within {
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+
+.ask-input {
   flex: 1;
   min-width: 0;
+  max-height: 160px;
+  padding: 7px 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  color: inherit;
+  /* 16px or more, so iOS does not zoom in when the box is tapped. */
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.ask-input::placeholder {
+  color: var(--muted);
+}
+
+.ask-send {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--bg);
+  cursor: pointer;
+}
+
+.ask-send:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .ask-message {
@@ -1930,8 +1973,7 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   justify-content: flex-end;
 }
 
-/* While an answer is on its way: a pulsing dot with the status and seconds, then a blinking caret after the
-   text as it is written. */
+/* While an answer is on its way: a pulsing dot with the status and seconds. */
 .ask-status {
   display: flex;
   align-items: center;
@@ -1947,16 +1989,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   animation: ask-pulse 1.2s ease-in-out infinite;
 }
 
-.ask-caret {
-  display: inline-block;
-  width: 2px;
-  height: 1em;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  background: currentColor;
-  animation: ask-blink 1s steps(1) infinite;
-}
-
 @keyframes ask-pulse {
   0%,
   100% {
@@ -1969,15 +2001,8 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   }
 }
 
-@keyframes ask-blink {
-  50% {
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .ask-pulse,
-  .ask-caret {
+  .ask-pulse {
     animation: none;
   }
 }
