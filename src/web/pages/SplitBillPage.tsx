@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { DatePicker } from '../components/DatePicker';
@@ -378,7 +379,7 @@ function SplitBillEditor({ id }: { id: string }) {
     );
   }
 
-  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
+  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: categoryName(category.name), icon: <CategoryIcon icon={category.icon} /> }));
   const creditSources = (sources ?? []).filter((source) => source.kind === 'credit_card' || source.kind === 'paylater');
 
   return (

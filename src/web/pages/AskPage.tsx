@@ -134,7 +134,7 @@ export function AskPage() {
                 item.answer.split(PART_BREAK).map((part, partIndex, all) => (
                   <div key={partIndex} className="ask-message is-ai">
                     <span className="avatar avatar-sm" aria-hidden="true">
-                      <Icon name="sparkle" size={14} />
+                      <Icon name="comment" size={14} />
                     </span>
                     <div>
                       <p>{part}</p>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { api, ApiRequestError } from '../api';
 import { Link, useSearchParams } from 'react-router';
 import { Dialog } from '../components/Dialog';
@@ -198,7 +199,7 @@ export function TransaksiPage() {
           value={filters.category}
           options={[
             { value: '', label: t('tx.allCategories') },
-            ...(categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` })),
+            ...(categories ?? []).map((category) => ({ value: category.id, label: categoryName(category.name), icon: <CategoryIcon icon={category.icon} /> })),
           ]}
           onChange={(next) => updateFilter('category', next)}
           ariaLabel={t('tx.category')}
@@ -399,7 +400,7 @@ export function TransaksiPage() {
               return (
                 <article key={transaction.id} className="tx-item recent-tile" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties}>
                   <span className="cat-badge" style={{ '--cat-color': category?.color } as CSSProperties}>
-                    {transaction.method === 'transfer' ? <Icon name="transfer" size={16} /> : category?.icon}
+                    {transaction.method === 'transfer' ? <Icon name="transfer" size={16} /> : <CategoryIcon icon={category?.icon} />}
                   </span>
                   <div className="tx-item-main">
                     <div className="tx-item-top">

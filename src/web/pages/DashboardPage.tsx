@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { Link, useSearchParams } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { Donut } from '../components/Donut';
@@ -281,7 +282,7 @@ export function DashboardPage() {
                         <div className="bar-row-head">
                           <span className="cat-name">
                             <span className="cat-badge" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties}>
-                              {category?.icon ?? '📦'}
+                              <CategoryIcon icon={category?.icon ?? '📦'} />
                             </span>
                             {category ? categoryName(category.name) : t('dash.uncategorized')}
                           </span>
@@ -311,7 +312,7 @@ export function DashboardPage() {
                     return (
                       <li key={item.id} className="recent-row recent-tile" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties}>
                         <span className="cat-badge" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties} aria-hidden="true">
-                          {category?.icon ?? '📦'}
+                          <CategoryIcon icon={category?.icon ?? '📦'} />
                         </span>
                         <span className="recent-main">
                           <span className="recent-title">{item.note || (category ? categoryName(category.name) : '—')}</span>

@@ -5,6 +5,7 @@ import { App } from './App';
 import { syncThemeColor } from './themeColor';
 import './styles.css';
 import './palette.css';
+import './ledger.css';
 
 // The service worker makes the app installable and keeps it full screen when opened from the home
 // screen. Production only: the dev server reloads too often for one.

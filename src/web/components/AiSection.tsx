@@ -108,7 +108,7 @@ export function AiSection() {
       <section className="card storage-card">
         <div className="storage-head">
           <span className="storage-logo" aria-hidden="true">
-            <Icon name="sparkle" size={24} />
+            <Icon name="comment" size={24} />
           </span>
           <div className="grow">
             <h2 className="m-0">NVIDIA</h2>
@@ -158,7 +158,7 @@ export function AiSection() {
 
             <div className="cluster">
               <button type="button" className="btn" onClick={() => void runTest()} aria-busy={busy} disabled={busy}>
-                <Icon name="sparkle" size={14} />
+                <Icon name="comment" size={14} />
                 {t('ai.test')}
               </button>
               {status.source === 'settings' && !editing && (

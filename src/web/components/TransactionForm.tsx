@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { CategoryIcon } from './CategoryIcon';
 import { Link } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { budgetStatus, type BudgetLine, type BudgetMonth } from '../../shared/budget';
@@ -207,7 +208,7 @@ export function TransactionForm({ categories, sources, holders = [], initial, tr
                   onClick={() => setCategoryId(category.id)}
                 >
                   <span className="cat-badge" aria-hidden="true">
-                    {category.icon}
+                    <CategoryIcon icon={category.icon} />
                   </span>
                   <span className="category-option-name">{categoryName(category.name)}</span>
                   {(status === 'near' || status === 'over') && (

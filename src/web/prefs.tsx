@@ -50,7 +50,7 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   });
 
   // Soft pastel is the default. A browser that chose monochrome keeps it.
-  const [palette, setPaletteState] = useState<Palette>(() => (readStored(PALETTE_KEY) === 'mono' ? 'mono' : 'pastel'));
+  const [palette, setPaletteState] = useState<Palette>(() => (readStored(PALETTE_KEY) === 'pastel' ? 'pastel' : 'mono'));
 
   useEffect(() => {
     document.documentElement.lang = lang;

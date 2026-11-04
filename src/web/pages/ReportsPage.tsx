@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { api, ApiRequestError } from '../api';
 import { Donut } from '../components/Donut';
 import { Icon } from '../components/Icon';
@@ -214,7 +215,7 @@ export function ReportsPage() {
                         <li key={row.categoryId} className="rep-legend-row rep-legend-item" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties}>
                           <div className="rep-legend-top">
                             <span className="cat-badge" aria-hidden="true">
-                              {category?.icon}
+                              <CategoryIcon icon={category?.icon} />
                             </span>
                             <span className="grow truncate">{category ? categoryName(category.name) : t('dash.uncategorized')}</span>
                             <span className="amount">{money(row.total)}</span>
@@ -272,5 +273,5 @@ function ChangeCell({ current, previous }: { current: number; previous: number |
   if (previous === 0) return <span className="rep-change text-muted">{current > 0 ? t('reports.new') : '—'}</span>;
   const change = Math.round(((current - previous) / previous) * 100);
   if (change === 0) return <span className="rep-change text-muted">0%</span>;
-  return <span className={`rep-change ${change > 0 ? 'is-up' : 'is-down'}`}>{change > 0 ? `▲ ${change}%` : `▼ ${Math.abs(change)}%`}</span>;
+  return <span className={`rep-change ${change > 0 ? 'is-up' : 'is-down'}`}>{change > 0 ? `+${change}%` : `−${Math.abs(change)}%`}</span>;
 }

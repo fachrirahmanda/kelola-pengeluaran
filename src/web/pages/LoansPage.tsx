@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { Link } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { DatePicker } from '../components/DatePicker';
@@ -149,7 +150,7 @@ export function DebtForm({ onSaved, onError }: { onSaved: () => void; onError: (
   const [saving, setSaving] = useState(false);
   const total = toAmount(amount);
   const selectedCategory = categoryId || categories?.[0]?.id || '';
-  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
+  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: categoryName(category.name), icon: <CategoryIcon icon={category.icon} /> }));
 
   async function submit(event: FormEvent) {
     event.preventDefault();

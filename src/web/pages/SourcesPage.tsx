@@ -465,7 +465,10 @@ function SourceCards({ sources, holders, filtered, billStates, onEdit, onRemove 
               <div className="source-card-amount">
                 <span className="source-card-label">
                   <span className="text-sm text-muted">{label}</span>
-                  {state && <span className={`badge ${state.status === 'unpaid' ? 'badge-warning' : 'badge-success'}`}>{t(state.status === 'unpaid' ? 'settings.billUnpaid' : 'settings.billPaid')}</span>}
+                  {/* The bill state, unless the label already says it. */}
+                  {state && t(state.status === 'unpaid' ? 'settings.billUnpaid' : 'settings.billPaid') !== label && (
+                    <span className={`badge ${state.status === 'unpaid' ? 'badge-warning' : 'badge-success'}`}>{t(state.status === 'unpaid' ? 'settings.billUnpaid' : 'settings.billPaid')}</span>
+                  )}
                 </span>
                 <strong className="source-amount">{money(figure)}</strong>
                 {source.kind !== 'savings' && source.creditLimit ? <span className="text-sm text-muted">{`${t('settings.creditLimit')}: ${money(source.creditLimit)}`}</span> : null}

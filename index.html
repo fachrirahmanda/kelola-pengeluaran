@@ -18,9 +18,9 @@
     <script>
       // The colour style is set before the first paint, so the page never flashes in the wrong style.
       try {
-        document.documentElement.dataset.palette = localStorage.getItem('neraca.palette') === 'mono' ? 'mono' : 'pastel';
+        document.documentElement.dataset.palette = localStorage.getItem('neraca.palette') === 'pastel' ? 'pastel' : 'mono';
       } catch {
-        document.documentElement.dataset.palette = 'pastel';
+        document.documentElement.dataset.palette = 'mono';
       }
     </script>
     <link rel="stylesheet" href="%VITE_DS_URL%/ds.css" />

@@ -205,7 +205,7 @@ export function Select<V extends string>({
             }}
             isSearchable={withSearch}
             isOptionDisabled={(o) => !!o.disabled}
-            placeholder="Search…"
+            placeholder="Search"
             aria-label={ariaLabel}
             autoFocus={!touchDevice()}
             menuIsOpen

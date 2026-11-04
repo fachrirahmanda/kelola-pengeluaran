@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from 'react';
+import { CategoryIcon } from './CategoryIcon';
 import { api, ApiRequestError } from '../api';
 import { CategoryEditor } from './CategoryEditor';
 import { Dialog } from './Dialog';
@@ -72,7 +73,7 @@ export function CategoriesSection() {
             <article key={category.id} className="cat-tile" style={{ '--cat-color': category.color } as CSSProperties}>
               <div className="cat-tile-head">
                 <span className="cat-badge cat-badge-lg" style={{ '--cat-color': category.color } as CSSProperties} aria-hidden="true">
-                  {category.icon}
+                  <CategoryIcon icon={category.icon} size={20} />
                 </span>
                 <div className="cat-tile-actions">
                   <button

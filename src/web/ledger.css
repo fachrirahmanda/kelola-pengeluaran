@@ -1,0 +1,207 @@
+/* The ledger look ("buku kas"), loaded last. Calm and exact, a little warm: paper-toned neutrals, ink for text and
+   the primary button, and one deep green accent that marks only the current selection, the current month and one key
+   figure. The chrome stays quiet so the content (bank cards, the monthly chart) carries the colour. The colour tokens
+   apply to the default style; the Macaron palette (palette.css) keeps its own. Structure fixes apply to both. */
+
+html:not([data-palette='pastel']) {
+  --bg: light-dark(#f6f5f1, #151412);
+  --surface: light-dark(#fdfcfa, #1c1b18);
+  --surface-2: light-dark(#efede7, #24231f);
+  --fill: light-dark(rgb(31 27 22 / 0.045), rgb(239 233 222 / 0.06));
+  --fill-strong: light-dark(rgb(31 27 22 / 0.08), rgb(239 233 222 / 0.1));
+  --separator: light-dark(rgb(31 27 22 / 0.09), rgb(239 233 222 / 0.09));
+  --card-edge: light-dark(rgb(31 27 22 / 0.08), rgb(239 233 222 / 0.08));
+  --text: light-dark(#1f1c18, #efebe3);
+  --muted: light-dark(#6b6459, #a8a297);
+  --accent: light-dark(#1f1c18, #efebe3);
+  --accent-soft: light-dark(rgb(31 28 24 / 0.07), rgb(239 235 227 / 0.1));
+  --on-accent: light-dark(#fdfcfa, #1f1c18);
+}
+
+/* The ledger green: deep enough for white text and for text on the paper background (both above 4.5 to 1). */
+html {
+  --ledger: light-dark(#1d6a4e, #5cbf96);
+  --ledger-soft: light-dark(rgb(29 106 78 / 0.1), rgb(92 191 150 / 0.14));
+  --ledger-rule: color-mix(in srgb, var(--text) 40%, transparent);
+}
+
+/* ---------- Surfaces: cards are a raised paper surface with a hairline, no shadows on light paper ---------- */
+
+/* Bank cards (.source-card) keep their bank colour: they are the moment on the Sources page. */
+html:not([data-palette='pastel']) :is(.card, .stat, .stat-primary, .dash-panel, .bill-card, .dash-empty, .rep-card):not(.source-card) {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge);
+}
+
+html:not([data-palette='pastel']) .card .card,
+html:not([data-palette='pastel']) .card .empty {
+  box-shadow: none;
+}
+
+/* Stat cards are numbers: label, figure. One quiet surface for all of them. */
+html:not([data-palette='pastel']) .stat-grid .stat {
+  background: var(--surface);
+}
+
+/* Category colour lives in the icon only. Tiles and rows stay on the neutral surface. */
+.budget-item,
+.side-panel-scope .tx-form .category-option,
+.cat-tile,
+.recent-tile {
+  background: var(--fill);
+}
+
+.side-panel-scope .tx-form .category-option[aria-checked='true'] {
+  background: var(--surface);
+  box-shadow: 0 0 0 1.5px var(--ledger);
+}
+
+.cat-badge,
+.budget-item-icon {
+  background: color-mix(in srgb, var(--cat-color, var(--muted)) 14%, transparent);
+  color: color-mix(in srgb, var(--cat-color, var(--muted)) 75%, var(--text));
+}
+
+/* ---------- Type: sentence case, weights 400 to 600, no tight tracking on small text ---------- */
+
+.sidebar-label,
+.ds-sidebar-label,
+.cal-weekday,
+.date-popover .rdp-weekday,
+.side-panel-scope .tx-amount-label,
+.side-panel-scope .tx-field-label {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.side-panel-scope .tx-amount-label,
+.side-panel-scope .tx-field-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.page-header h2,
+.page-header h1 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.stat-value,
+.source-amount,
+.rep-total,
+.side-panel-scope .tx-amount-field input {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-tile-day,
+.budget-history-row[aria-current='true'] .source-name,
+.date-popover .rdp-today:not(.rdp-selected) .rdp-day_button {
+  font-weight: 600;
+}
+
+/* ---------- Accent: the ledger green marks the selection and the current month, nothing else ---------- */
+
+.ds-sidebar .ds-sidebar-link[aria-current='page'] {
+  box-shadow: inset 2px 0 0 var(--ledger);
+}
+
+.ds-sidebar .ds-sidebar-link[aria-current='page'] svg {
+  color: var(--ledger);
+}
+
+.date-popover .rdp-today:not(.rdp-selected) .rdp-day_button {
+  color: var(--ledger);
+  box-shadow: inset 0 0 0 1.5px var(--ledger-soft);
+}
+
+/* Monthly bars: one series, so every month is the same neutral step; the latest month takes the accent. */
+.rep-bar-fill,
+html:not([data-palette='pastel']) .rep-bar-fill {
+  border-radius: 6px 6px 2px 2px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+.rep-bar:last-child .rep-bar-fill,
+html:not([data-palette='pastel']) .rep-bar:last-child .rep-bar-fill {
+  background: var(--ledger);
+}
+
+.rep-bar:last-child .rep-bar-value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rep-bar-value,
+.rep-bar-label {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Month-on-month change: quiet coloured figures, not pills. */
+.rep-change,
+.rep-change.is-up,
+.rep-change.is-down {
+  padding: 0;
+  background: none;
+  font-weight: 500;
+}
+
+/* ---------- Signature: a double rule under the totals, as in a cash book ---------- */
+
+.rep-total,
+.dash-due-total {
+  display: inline-block;
+  align-self: flex-start;
+  width: fit-content;
+  padding-bottom: 2px;
+  border-bottom: 3px double var(--ledger-rule);
+}
+
+/* ---------- Details: radius by size, so not everything is a pill ---------- */
+
+html:not([data-palette='pastel']) {
+  --radius: 10px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+.btn,
+.input,
+.rs__control,
+.ask-composer {
+  border-radius: 10px;
+}
+
+.side-panel-scope .btn-primary,
+.form-actions .btn {
+  border-radius: 10px;
+}
+
+.sidebar-count {
+  background: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Delete on a bank card: a plain icon in the card's text colour, not a red disc. */
+.source-card .source-actions .icon-btn-soft.text-danger {
+  background: none;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.source-card .source-actions .icon-btn-soft.text-danger:hover {
+  background: rgb(255 255 255 / 0.16);
+  opacity: 1;
+}
+
+/* ---------- Motion: nothing loops unless it is live ---------- */
+
+.login-preview-row {
+  animation: none;
+}
+
+/* The "Spent" swatch in the budget chart legend matches the neutral bars. */
+html:not([data-palette='pastel']) .budget-legend-bar {
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}

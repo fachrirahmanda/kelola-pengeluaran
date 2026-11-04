@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { Link, useNavigate, useParams } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { AttachmentsSection } from '../components/AttachmentsSection';
@@ -75,8 +76,8 @@ export function TransactionDetailPage() {
   const source = sources?.find((item) => item.id === transaction.sourceId);
   const destination = sources?.find((item) => item.id === transaction.toSourceId);
   const isTransfer = transaction.method === 'transfer';
-  const rows: { label: string; value: string }[] = [
-    { label: t('tx.col.category'), value: category ? `${category.icon} ${categoryName(category.name)}` : '—' },
+  const rows: { label: string; value: ReactNode }[] = [
+    { label: t('tx.col.category'), value: category ? <span className="txd-category"><CategoryIcon icon={category.icon} />{categoryName(category.name)}</span> : '—' },
     { label: t('tx.col.method'), value: t(METHOD_KEYS[transaction.method]) },
     { label: isTransfer ? t('tx.from') : t('tx.source'), value: source?.name ?? '—' },
     ...(isTransfer ? [{ label: t('tx.to'), value: destination?.name ?? '—' }] : []),

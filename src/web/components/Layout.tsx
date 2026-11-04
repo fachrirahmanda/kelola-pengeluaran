@@ -26,7 +26,7 @@ const ICON = {
   recurring: <Icon name="sprint" size={18} />,
   reports: <Icon name="chart" size={18} />,
   settings: <Icon name="settings" size={18} />,
-  ask: <Icon name="sparkle" size={18} />,
+  ask: <Icon name="comment" size={18} />,
   budgets: <Icon name="target" size={18} />,
   loans: <Icon name="coins" size={18} />,
   categories: <Icon name="tag" size={18} />,
@@ -202,7 +202,7 @@ export function Layout() {
           <span>Neraca</span>
         </NavLink>
         <NavLink to="/ask" className="icon-btn icon-btn-plain ask-link" aria-label={asking ? t('ask.thinking') : t('nav.ask')} title={asking ? t('ask.thinking') : t('nav.ask')}>
-          <Icon name="sparkle" size={18} />
+          <Icon name="comment" size={18} />
           {asking && <span className="ask-busy-dot" aria-hidden="true" />}
         </NavLink>
         <button

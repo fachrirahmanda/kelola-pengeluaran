@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { ApiRequestError } from '../api';
 import { usePrefs } from '../prefs';
+import { CategoryIcon } from './CategoryIcon';
 import { CATEGORY_COLORS, CATEGORY_ICONS, type Category, type CategoryInput } from '../../shared/types';
 
 interface CategoryEditorProps {
@@ -70,7 +71,7 @@ export function CategoryEditor({ initial, submitLabel, onSave, onCancel }: Categ
               aria-checked={icon === option}
               onClick={() => setIcon(option)}
             >
-              {option}
+              <CategoryIcon icon={option} size={18} />
             </button>
           ))}
         </div>

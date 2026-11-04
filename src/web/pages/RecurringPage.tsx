@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { api, ApiRequestError } from '../api';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
@@ -29,7 +30,7 @@ export function InstallmentsSection() {
   const [error, setError] = useState('');
   const history = usePage(data?.payments.length ?? 0, HISTORY_PAGE_SIZE);
 
-  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
+  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: categoryName(category.name), icon: <CategoryIcon icon={category.icon} /> }));
 
   // The installments whose next payment is due or overdue, as the server reports them. Only these can be marked as paid here.
   const dueIds = new Set((data?.upcoming ?? []).map((item) => item.id));

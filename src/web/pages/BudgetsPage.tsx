@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { api, ApiRequestError } from '../api';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
@@ -85,7 +86,7 @@ function BudgetRow({ scope, label, color, icon, amount, spent, editable, busy, o
   return (
     <div className={`budget-item is-${status}`} style={{ '--cat-color': color } as CSSProperties}>
       <span className="budget-item-icon" aria-hidden="true">
-        {icon || <Icon name="wallet" size={18} />}
+        {icon ? <CategoryIcon icon={icon} size={18} /> : <Icon name="wallet" size={18} />}
       </span>
       <div className="budget-item-main">
         <div className="budget-item-top">
@@ -173,7 +174,7 @@ function TrendCard({ months, categories }: { months: BudgetMonth[]; categories: 
   const used = new Set(months.flatMap((month) => month.categories.filter((row) => row.amount !== null || row.spent > 0).map((row) => row.categoryId)));
   const options = [
     { value: '', label: t('budgets.total') },
-    ...categories.filter((category) => used.has(category.id)).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` })),
+    ...categories.filter((category) => used.has(category.id)).map((category) => ({ value: category.id, label: categoryName(category.name), icon: <CategoryIcon icon={category.icon} /> })),
   ];
   const lines = months.map((month) => ({ month: month.month, ...lineOf(month, scope) }));
   const max = Math.max(1, ...lines.map((line) => Math.max(line.spent, line.amount ?? 0)));
@@ -287,7 +288,7 @@ function ChangesCard({ months, categories }: { months: BudgetMonth[]; categories
             <div key={category.id} className="budget-changes-row">
               <span className="cat-name">
                 <span className="cat-badge" style={{ '--cat-color': category.color } as CSSProperties} aria-hidden="true">
-                  {category.icon}
+                  <CategoryIcon icon={category.icon} />
                 </span>
                 <span className="truncate">{categoryName(category.name)}</span>
               </span>
