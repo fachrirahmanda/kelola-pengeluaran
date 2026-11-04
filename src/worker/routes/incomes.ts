@@ -23,15 +23,16 @@ export async function listIncomes({ request, env, userId }: RouteContext) {
   const url = new URL(request.url);
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
+  const source = url.searchParams.get('source');
   if ((from && !isDate(from)) || (to && !isDate(to))) throw new HttpError(400, 'Tanggal tidak valid');
   const range = from && to;
   const { results } = await env.DB.prepare(
     `SELECT i.id, i.source_id, s.name AS source_name, s.bank, i.occurred_on, i.amount, i.note, i.salary_month
      FROM incomes i JOIN payment_sources s ON s.id = i.source_id
-     WHERE i.user_id = ?${range ? ' AND i.occurred_on >= ? AND i.occurred_on <= ?' : ''}
+     WHERE i.user_id = ?${range ? ' AND i.occurred_on >= ? AND i.occurred_on <= ?' : ''}${source ? ' AND i.source_id = ?' : ''}
      ORDER BY i.occurred_on DESC, i.created_at DESC LIMIT ${range ? RANGE_LIMIT : LIST_LIMIT}`,
   )
-    .bind(...(range ? [userId, from, to] : [userId]))
+    .bind(userId, ...(range ? [from, to] : []), ...(source ? [source] : []))
     .all<{ id: string; source_id: string; source_name: string; bank: string | null; occurred_on: string; amount: number; note: string; salary_month: string | null }>();
   const incomes: Income[] = results.map((row) => ({
     id: row.id,

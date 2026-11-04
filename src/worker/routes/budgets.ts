@@ -4,6 +4,8 @@ import type { Env } from '../env';
 import type { RouteContext } from '../context';
 import { HttpError, json, readJson } from '../http';
 import { todayInWib } from './ask';
+import { periodOf } from '../../shared/period';
+import { periodSpendingOf, periodStartOf } from './period';
 
 // Budgets: a monthly amount per category, and a total. A budget repeats every month until it changes; each
 // change is kept with the month it starts (budget_changes), so past months keep the budget they had. The
@@ -20,17 +22,6 @@ async function changesOf(env: Env, userId: string) {
   return results;
 }
 
-/** Spending per month and category, for the months from `first` to `last`. */
-async function spendingOf(env: Env, userId: string, first: string, last: string) {
-  const { results } = await env.DB.prepare(
-    `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total FROM transactions
-     WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? AND posted_on < ? GROUP BY month, category_id`,
-  )
-    .bind(userId, `${first}-01`, `${addMonths(last, 1)}-01`)
-    .all<{ month: string; category_id: string; total: number }>();
-  return results;
-}
-
 /** The budgets in force in a month: the latest change at or before it, per scope ('' is the total). */
 function budgetsAt(changes: { category_id: string | null; month: string; amount: number }[], month: string) {
   const amounts = new Map<string, number>();
@@ -42,7 +33,7 @@ function budgetsAt(changes: { category_id: string | null; month: string; amount:
   return amounts;
 }
 
-function monthOf(month: string, changes: Awaited<ReturnType<typeof changesOf>>, spending: Awaited<ReturnType<typeof spendingOf>>): BudgetMonth {
+function monthOf(month: string, changes: Awaited<ReturnType<typeof changesOf>>, spending: Awaited<ReturnType<typeof periodSpendingOf>>): BudgetMonth {
   const budgets = budgetsAt(changes, month);
   const spentBy = new Map(spending.filter((row) => row.month === month).map((row) => [row.category_id, row.total]));
   const categoryIds = new Set([...[...budgets.keys()].filter((scope) => scope !== ''), ...spentBy.keys()]);
@@ -57,19 +48,21 @@ function monthOf(month: string, changes: Awaited<ReturnType<typeof changesOf>>, 
 
 /** GET /api/budgets?month=YYYY-MM: the budgets of a month (this month by default) and what was spent in it. */
 export async function listBudgets({ request, env, userId }: RouteContext) {
-  const current = todayInWib().slice(0, 7);
+  const startDay = await periodStartOf(env, userId);
+  const current = periodOf(todayInWib(), startDay);
   const asked = new URL(request.url).searchParams.get('month');
   const month = isMonth(asked) && asked <= current ? asked : current;
-  const [changes, spending] = await Promise.all([changesOf(env, userId), spendingOf(env, userId, month, month)]);
+  const [changes, spending] = await Promise.all([changesOf(env, userId), periodSpendingOf(env, userId, startDay, month, month)]);
   return json({ ...monthOf(month, changes, spending), current });
 }
 
 /** GET /api/budgets/history?months=6: the last months, oldest first, each with its budgets and spending. */
 export async function budgetHistory({ request, env, userId }: RouteContext) {
-  const current = todayInWib().slice(0, 7);
+  const startDay = await periodStartOf(env, userId);
+  const current = periodOf(todayInWib(), startDay);
   const count = Math.min(MAX_HISTORY_MONTHS, Math.max(2, Number(new URL(request.url).searchParams.get('months')) || 6));
   const first = addMonths(current, -(count - 1));
-  const [changes, spending] = await Promise.all([changesOf(env, userId), spendingOf(env, userId, first, current)]);
+  const [changes, spending] = await Promise.all([changesOf(env, userId), periodSpendingOf(env, userId, startDay, first, current)]);
   const months = Array.from({ length: count }, (_, index) => monthOf(addMonths(first, index), changes, spending));
   return json({ months });
 }
@@ -91,7 +84,7 @@ export async function saveBudget({ request, env, userId }: RouteContext) {
     if (!category) throw new HttpError(404, 'Kategori tidak ditemukan');
   }
 
-  const month = todayInWib().slice(0, 7);
+  const month = periodOf(todayInWib(), await periodStartOf(env, userId));
   const remove = categoryId
     ? env.DB.prepare('DELETE FROM budgets WHERE user_id = ? AND category_id = ?').bind(userId, categoryId)
     : env.DB.prepare('DELETE FROM budgets WHERE user_id = ? AND category_id IS NULL').bind(userId);

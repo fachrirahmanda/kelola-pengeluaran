@@ -66,7 +66,10 @@ function nvidiaDetail(body: string) {
  * and message, and the caller gets a short Indonesian message. No max_tokens is sent, so the model
  * can think and answer as long as it needs; the time limit above is the only limit.
  */
-export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
+/** A part of a message: text, or an image (a data URL) for a model that reads pictures. */
+export type ContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+
+export async function chat(config: AiConfig, messages: { role: 'system' | 'user' | 'assistant'; content: string | ContentPart[] }[]) {
   const signal = AbortSignal.timeout(TIMEOUT_MS);
   const tooSlow = (err: unknown) => {
     console.error('nvidia request did not finish', config.model, err);

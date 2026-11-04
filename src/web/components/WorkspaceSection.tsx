@@ -187,7 +187,7 @@ export function WorkspaceSection() {
                 ) : (
                   <button
                     type="button"
-                    className="icon-btn icon-btn-plain text-danger"
+                    className="icon-btn icon-btn-soft text-danger"
                     aria-label={t('ws.remove')}
                     title={t('ws.remove')}
                     onClick={() => {

@@ -1,4 +1,5 @@
 import type { Lang } from './i18n';
+import { periodOf, periodRange } from '../shared/period';
 
 export const CURRENCIES = ['IDR', 'USD', 'EUR', 'GBP', 'SGD', 'MYR', 'JPY'] as const;
 export type Currency = (typeof CURRENCIES)[number];
@@ -22,12 +23,9 @@ export function todayInWib(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
-/** First and last day of the month of an ISO date, as YYYY-MM-DD. */
-export function monthRange(isoDate: string): { from: string; to: string } {
-  const [year, month] = isoDate.split('-').map(Number);
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const prefix = isoDate.slice(0, 7);
-  return { from: `${prefix}-01`, to: `${prefix}-${String(lastDay).padStart(2, '0')}` };
+/** First and last day of the monthly period a date falls in, as YYYY-MM-DD (startDay 1 is the calendar month). */
+export function monthRange(isoDate: string, startDay = 1): { from: string; to: string } {
+  return periodRange(periodOf(isoDate, startDay), startDay);
 }
 
 /** "2026-10" -> "October 2026" in English, "Oktober 2026" in Indonesian. */

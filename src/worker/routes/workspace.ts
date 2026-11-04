@@ -30,9 +30,9 @@ function requireOwner(role: RouteContext['role']) {
 
 /** GET /api/workspace: whose data this is, who is in it, and invitations for the signed-in person. */
 export async function getWorkspace({ env, actorId, userId, role }: RouteContext) {
-  const owner = await env.DB.prepare('SELECT id, name, email, avatar_url, avatar_v FROM users WHERE id = ?')
+  const owner = await env.DB.prepare('SELECT id, name, email, avatar_url, avatar_v, period_start_day FROM users WHERE id = ?')
     .bind(userId)
-    .first<{ id: string; name: string; email: string; avatar_url: string | null; avatar_v: number | null }>();
+    .first<{ id: string; name: string; email: string; avatar_url: string | null; avatar_v: number | null; period_start_day: number }>();
   const members =
     role === 'owner'
       ? (
@@ -68,6 +68,7 @@ export async function getWorkspace({ env, actorId, userId, role }: RouteContext)
       ownerName: owner?.name ?? '',
       ownerEmail: owner?.email ?? '',
       ownerAvatarUrl: owner ? photoOf(owner.id, owner.avatar_url, owner.avatar_v) : null,
+      periodStartDay: owner?.period_start_day ?? 1,
       role,
       members: members.map((row) => ({ userId: row.id, email: row.email, name: row.name, avatarUrl: photoOf(row.id, row.avatar_url, row.avatar_v), role: row.role, lastSeenAt: row.last_seen_at })),
       invites,

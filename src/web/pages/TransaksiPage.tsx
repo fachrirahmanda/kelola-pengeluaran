@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { api, ApiRequestError } from '../api';
+import { Link, useSearchParams } from 'react-router';
 import { Dialog } from '../components/Dialog';
+import { usePhone } from '../components/SidePanel';
 import { Dropdown } from '../components/Dropdown';
 import { SkeletonRows } from '../components/Skeleton';
 import { TransactionForm } from '../components/TransactionForm';
-import { useCategories, useSources } from '../data';
+import { useCategories, usePeriodStart, useSources } from '../data';
+import { monthLabel, todayInWib } from '../format';
+import { addMonths } from '../../shared/recurring';
+import { periodOf, periodRange } from '../../shared/period';
 import type { MessageKey } from '../i18n';
 import { usePrefs } from '../prefs';
 import { type Income, type Method, type Transaction } from '../../shared/types';
-import { DatePicker } from '../components/DatePicker';
 import { Icon } from '../components/Icon';
 import { TransactionCalendar } from '../components/TransactionCalendar';
 import { AttachmentsSection } from '../components/AttachmentsSection';
@@ -23,14 +27,16 @@ const TX_PAGE_SIZE = 20;
 type Row = { key: string; occurredOn: string; kind: 'transaction'; transaction: Transaction } | { key: string; occurredOn: string; kind: 'income'; income: Income };
 
 interface Filters {
-  from: string;
-  to: string;
   category: string;
   method: string;
+  source: string;
   q: string;
 }
 
-const EMPTY_FILTERS: Filters = { from: '', to: '', category: '', method: '', q: '' };
+const EMPTY_FILTERS: Filters = { category: '', method: '', source: '', q: '' };
+
+/** The months from one period (YYYY-MM) to another. */
+const monthsBetween = (from: string, to: string) => (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(to.slice(5)) - Number(from.slice(5)));
 
 // Debit and credit cards are both Cards in the app.
 const METHOD_KEYS: Record<Method, MessageKey> = {
@@ -40,10 +46,25 @@ const METHOD_KEYS: Record<Method, MessageKey> = {
 };
 
 export function TransaksiPage() {
-  const { t, money, date, categoryName } = usePrefs();
+  const { t, lang, money, date, categoryName } = usePrefs();
   const { categories } = useCategories();
   const { sources, holders } = useSources();
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  // Opened from a funds card (?source=…), the list starts filtered to that funds account.
+  const [searchParams] = useSearchParams();
+  const sourceParam = searchParams.get('source') ?? '';
+  const [filters, setFilters] = useState<Filters>(() => ({ ...EMPTY_FILTERS, source: sourceParam }));
+  useEffect(() => {
+    setFilters((current) => ({ ...current, source: sourceParam }));
+  }, [sourceParam]);
+  // The list shows one monthly period (its start day is set in Settings). Offset 0 is the current period. A day picked on the calendar narrows the list to that day.
+  const startDay = usePeriodStart();
+  const phone = usePhone();
+  const currentPeriod = periodOf(todayInWib(), startDay);
+  const [offset, setOffset] = useState(0);
+  const [day, setDay] = useState('');
+  const period = addMonths(currentPeriod, offset);
+  const { from, to } = day ? { from: day, to: day } : periodRange(period, startDay);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [incomes, setIncomes] = useState<Income[] | null>(null);
   const [loadError, setLoadError] = useState('');
@@ -65,7 +86,7 @@ export function TransaksiPage() {
     const transactionRows = (transactions ?? []).map((transaction): Row => ({ key: transaction.id, occurredOn: transaction.occurredOn, kind: 'transaction', transaction }));
     return [...transactionRows, ...incomeRows].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
   }, [transactions, incomes, filters.q, filters.category, filters.method]);
-  const paging = usePage(rows.length, TX_PAGE_SIZE, [filters.q, filters.from, filters.to, filters.category, filters.method]);
+  const paging = usePage(rows.length, TX_PAGE_SIZE, `${from}|${to}|${filters.q}|${filters.category}|${filters.method}|${filters.source}`);
 
   // Fetch after the user stops typing for a moment.
   useEffect(() => {
@@ -75,8 +96,10 @@ export function TransaksiPage() {
       for (const [key, value] of Object.entries(filters)) {
         if (value) params.set(key, value);
       }
+      params.set('from', from);
+      params.set('to', to);
       // Incomes have no category or method, so the category and method filters leave them out.
-      const incomeRange = `from=${filters.from || '1900-01-01'}&to=${filters.to || '2999-12-31'}`;
+      const incomeRange = `from=${from}&to=${to}${filters.source ? `&source=${filters.source}` : ''}`;
       Promise.all([
         api.get<{ transactions: Transaction[] }>(`/transactions?${params}`),
         filters.category || filters.method ? Promise.resolve({ incomes: [] as Income[] }) : api.get<{ incomes: Income[] }>(`/incomes?${incomeRange}`),
@@ -97,7 +120,7 @@ export function TransaksiPage() {
       ignore = true;
       clearTimeout(timer);
     };
-  }, [filters, reloadKey]);
+  }, [filters, from, to, reloadKey]);
 
   const categoryById = useMemo(() => new Map((categories ?? []).map((category) => [category.id, category])), [categories]);
   const sourceById = useMemo(() => new Map((sources ?? []).map((source) => [source.id, source])), [sources]);
@@ -108,6 +131,30 @@ export function TransaksiPage() {
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function resetAll() {
+    setFilters(EMPTY_FILTERS);
+    setOffset(0);
+    setDay('');
+  }
+
+  // A swipe to the left goes to the next period, a swipe to the right to the one before. Only a clearly sideways move counts.
+  function onSwipeStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    swipe.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function onSwipeEnd(event: TouchEvent<HTMLDivElement>) {
+    const start = swipe.current;
+    swipe.current = null;
+    if (!start) return;
+    const touch = event.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    setDay('');
+    setOffset((value) => (dx < 0 ? value + 1 : value - 1));
   }
 
   function refresh() {
@@ -142,17 +189,9 @@ export function TransaksiPage() {
     }
   }
 
-  // The date and category/method filters: shown in the grid on desktop, and in a side panel on phones.
+  // The category and method filters: shown in the grid on desktop, and in a side panel on phones. The period is set above the list.
   const filterFields = (
     <>
-      <label className="field">
-        <span className="field-label">{t('tx.from')}</span>
-        <DatePicker value={filters.from || null} onChange={(v) => updateFilter('from', v ?? '')} ariaLabel={t('tx.from')} />
-      </label>
-      <label className="field">
-        <span className="field-label">{t('tx.to')}</span>
-        <DatePicker value={filters.to || null} onChange={(v) => updateFilter('to', v ?? '')} ariaLabel={t('tx.to')} />
-      </label>
       <label className="field">
         <span className="field-label">{t('tx.category')}</span>
         <Dropdown
@@ -178,9 +217,18 @@ export function TransaksiPage() {
           ariaLabel={t('tx.method')}
         />
       </label>
+      <label className="field">
+        <span className="field-label">{t('tx.source')}</span>
+        <Dropdown
+          value={filters.source}
+          options={[{ value: '', label: t('tx.allSources') }, ...(sources ?? []).map((source) => ({ value: source.id, label: source.name }))]}
+          onChange={(next) => updateFilter('source', next)}
+          ariaLabel={t('tx.source')}
+        />
+      </label>
     </>
   );
-  const activeFilterCount = [filters.from, filters.to, filters.category, filters.method].filter(Boolean).length;
+  const activeFilterCount = [filters.category, filters.method, filters.source].filter(Boolean).length;
 
   return (
     <>
@@ -189,24 +237,65 @@ export function TransaksiPage() {
           <h2>{t('tx.title')}</h2>
           <p className="hint">{t('tx.subtitle')}</p>
         </div>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setFilters(EMPTY_FILTERS)}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={resetAll}>
           {t('common.reset')}
         </button>
       </div>
 
-      <div className="row-actions" style={{ marginBottom: 'var(--space-4)' }}>
-        <button type="button" className="btn btn-sm" aria-expanded={showCalendar} onClick={() => setShowCalendar((open) => !open)}>
-          {showCalendar ? t('tx.hideCalendar') : t('tx.showCalendar')}
-        </button>
-      </div>
-      {showCalendar && (
-        <div style={{ marginBottom: 'var(--space-4)' }}>
+      {/* Computers: the calendar and filters sit on the left, and the list on the right. Phones stack them. */}
+      <div className="tx-layout">
+      <div className="tx-side">
+      {phone && (
+        <div className="row-actions" style={{ marginBottom: 'var(--space-4)' }}>
+          <button type="button" className="btn btn-sm" aria-expanded={showCalendar} onClick={() => setShowCalendar((open) => !open)}>
+            {showCalendar ? t('tx.hideCalendar') : t('tx.showCalendar')}
+          </button>
+        </div>
+      )}
+      {(!phone || showCalendar) && (
+        <div>
           <TransactionCalendar
             onPickDay={(day) => {
-              setFilters({ ...EMPTY_FILTERS, from: day, to: day });
+              setFilters(EMPTY_FILTERS);
+              setDay(day);
+              setOffset(monthsBetween(currentPeriod, periodOf(day, startDay)));
               setShowCalendar(false);
             }}
           />
+        </div>
+      )}
+
+      {/* Desktop: every filter in one card, under the calendar. */}
+      <div className="card tx-filter-desktop" style={{ marginBottom: 'var(--space-4)' }}>
+        <div className="card-body filter-grid">
+          {filterFields}
+          <label className="field">
+            <span className="field-label">{t('tx.search')}</span>
+            <input type="search" className="input" value={filters.q} placeholder={t('tx.searchPlaceholder')} onChange={(event) => updateFilter('q', event.target.value)} />
+          </label>
+        </div>
+      </div>
+      </div>
+
+      <div className="tx-main">
+      {/* The list shows one period: move with the arrows, or swipe the list on a phone. */}
+      <div className="period-nav">
+        <button type="button" className="icon-btn icon-btn-plain" onClick={() => setOffset((value) => value - 1)} aria-label={t('tx.prevPeriod')} title={t('tx.prevPeriod')}>
+          <Icon name="chevron-right" size={18} className="period-nav-prev" />
+        </button>
+        <div className="period-nav-label">
+          <strong>{monthLabel(period, lang)}</strong>
+          <span className="hint">{day ? date(day) : `${date(from)} – ${date(to)}`}</span>
+        </div>
+        <button type="button" className="icon-btn icon-btn-plain" onClick={() => setOffset((value) => value + 1)} aria-label={t('tx.nextPeriod')} title={t('tx.nextPeriod')}>
+          <Icon name="chevron-right" size={18} />
+        </button>
+      </div>
+      {(offset !== 0 || day) && (
+        <div className="row-actions" style={{ marginBottom: 'var(--space-3)' }}>
+          <button type="button" className="btn btn-sm" onClick={() => { setOffset(0); setDay(''); }}>
+            {t('tx.thisPeriod')}
+          </button>
         </div>
       )}
 
@@ -225,7 +314,7 @@ export function TransaksiPage() {
         className="filter-sheet"
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setFilters(EMPTY_FILTERS)} disabled={activeFilterCount === 0 && !filters.q}>
+            <button type="button" className="btn" onClick={resetAll} disabled={activeFilterCount === 0 && !filters.q && offset === 0 && !day}>
               {t('common.reset')}
             </button>
             <button type="button" className="btn btn-primary" onClick={() => setFilterOpen(false)}>
@@ -236,17 +325,6 @@ export function TransaksiPage() {
       >
         <div className="filter-sheet-body">{filterFields}</div>
       </Dialog>
-
-      {/* Desktop and tablets: every filter in one card. */}
-      <div className="card tx-filter-desktop" style={{ marginBottom: 'var(--space-4)' }}>
-        <div className="card-body filter-grid">
-          {filterFields}
-          <label className="field">
-            <span className="field-label">{t('tx.search')}</span>
-            <input type="search" className="input" value={filters.q} placeholder={t('tx.searchPlaceholder')} onChange={(event) => updateFilter('q', event.target.value)} />
-          </label>
-        </div>
-      </div>
 
       {loadError && (
         <p className="text-danger" role="alert">
@@ -277,113 +355,13 @@ export function TransaksiPage() {
             {transactions.length >= LIST_LIMIT && ` · ${t('tx.limitNote', { limit: LIST_LIMIT })}`}
           </p>
 
-          <div className="table-wrap tx-table-desktop">
-            <table className="table tx-table">
-              <thead>
-                <tr>
-                  <th>{t('tx.col.date')}</th>
-                  <th>{t('tx.col.category')}</th>
-                  <th>{t('tx.col.note')}</th>
-                  <th>{t('tx.col.method')}</th>
-                  <th className="text-right">{t('tx.col.amount')}</th>
-                  <th>{t('tx.col.status')}</th>
-                  <th>
-                    <span className="visually-hidden">{t('tx.col.actions')}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageOf(rows, paging.page, TX_PAGE_SIZE).map((row) => {
-                  if (row.kind === 'income') {
-                    const { income } = row;
-                    return (
-                      <tr key={row.key}>
-                        <td data-label={t('tx.col.date')} style={{ whiteSpace: 'nowrap' }}>
-                          {date(income.occurredOn)}
-                        </td>
-                        <td data-label={t('tx.col.category')}>
-                          <span className="badge badge-success">{income.fromSalary ? t('income.salaryBadge') : t('add.income')}</span>
-                        </td>
-                        <td data-label={t('tx.col.note')}>{income.note || t('income.untitled')}</td>
-                        <td data-label={t('tx.col.method')}>{income.sourceName}</td>
-                        <td data-label={t('tx.col.amount')} className="text-right amount text-success">
-                          +{money(income.amount)}
-                        </td>
-                        <td data-label={t('tx.col.status')}>
-                          <span className="badge badge-success">{t('tx.status.posted')}</span>
-                        </td>
-                        <td>
-                          <div className="row-actions">
-                            {!income.fromSalary && (
-                              <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => void handleDeleteIncome(income)}>
-                                {t('tx.delete')}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                  const transaction = row.transaction;
-                  const category = categoryById.get(transaction.categoryId);
-                  const source = transaction.sourceId ? sourceById.get(transaction.sourceId) : undefined;
-                  const methodText =
-                    source ? `${t(METHOD_KEYS[transaction.method])} · ${source.name}` : t(METHOD_KEYS[transaction.method]);
-                  return (
-                    <tr key={transaction.id}>
-                      <td data-label={t('tx.col.date')} style={{ whiteSpace: 'nowrap' }}>
-                        {date(transaction.occurredOn)}
-                        {transaction.occurredTime && <span className="text-muted"> {transaction.occurredTime}</span>}
-                      </td>
-                      <td data-label={t('tx.col.category')}>
-                        {category ? (
-                          <span className="cat-name">
-                            <span className="cat-badge" style={{ '--cat-color': category.color } as CSSProperties}>
-                              {category.icon}
-                            </span>
-                            {categoryName(category.name)}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                      <td data-label={t('tx.col.note')}>{transaction.note || <span className="text-muted">—</span>}</td>
-                      <td data-label={t('tx.col.method')}>{methodText}</td>
-                      <td data-label={t('tx.col.amount')} className="text-right amount">
-                        {money(transaction.amount)}
-                      </td>
-                      <td data-label={t('tx.col.status')}>
-                        {transaction.status === 'posted' ? (
-                          <span className="badge badge-success">{t('tx.status.posted')}</span>
-                        ) : (
-                          <span className="badge badge-warning">{t('tx.status.unpaid')}</span>
-                        )}
-                      </td>
-                      <td>
-                        <div className="row-actions">
-                          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(transaction)}>
-                            {t('tx.edit')}
-                          </button>
-                          <button type="button" className="btn btn-ghost btn-sm text-danger" onClick={() => void handleDelete(transaction)}>
-                            {t('tx.delete')}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Phones show the same rows as a list of cards: the table would need horizontal room they don't have. */}
-          <div className="tx-list">
+          <div className="tx-list" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
             {pageOf(rows, paging.page, TX_PAGE_SIZE).map((row) => {
               if (row.kind === 'income') {
                 const { income } = row;
                 return (
-                  <article key={row.key} className="tx-item recent-tile">
-                    <span className="cat-badge">
+                  <article key={row.key} className="tx-item recent-tile" style={{ '--cat-color': 'var(--success)' } as CSSProperties}>
+                    <span className="cat-badge" style={{ '--cat-color': 'var(--success)' } as CSSProperties}>
                       <Icon name="wallet" size={16} />
                     </span>
                     <div className="tx-item-main">
@@ -414,22 +392,27 @@ export function TransaksiPage() {
               const category = categoryById.get(transaction.categoryId);
               const source = transaction.sourceId ? sourceById.get(transaction.sourceId) : undefined;
               const methodText = source ? `${t(METHOD_KEYS[transaction.method])} · ${source.name}` : t(METHOD_KEYS[transaction.method]);
+              // A transfer shows where the money went, in place of the category.
+              const destination = transaction.toSourceId ? sourceById.get(transaction.toSourceId) : undefined;
+              const transferText = destination ? t('tx.transferTo', { name: destination.name }) : methodText;
               const categoryText = category ? categoryName(category.name) : '—';
               return (
                 <article key={transaction.id} className="tx-item recent-tile" style={{ '--cat-color': category?.color ?? '#6c757d' } as CSSProperties}>
                   <span className="cat-badge" style={{ '--cat-color': category?.color } as CSSProperties}>
-                    {category?.icon}
+                    {transaction.method === 'transfer' ? <Icon name="transfer" size={16} /> : category?.icon}
                   </span>
                   <div className="tx-item-main">
                     <div className="tx-item-top">
-                      <strong className="tx-item-title">{transaction.note || categoryText}</strong>
+                      <Link to={`/transactions/${transaction.id}`} className="tx-item-title tx-item-link">
+                        {transaction.note || categoryText}
+                      </Link>
                       <span className="tx-item-amount">{money(transaction.amount)}</span>
                     </div>
                     <span className="tx-item-meta">
                       {date(transaction.occurredOn)}
                       {transaction.occurredTime && ` ${transaction.occurredTime}`}
                       {' · '}
-                      {transaction.note ? categoryText : methodText}
+                      {transaction.method === 'transfer' ? transferText : transaction.note ? categoryText : methodText}
                     </span>
                     <div className="tx-item-foot">
                       <span className="tx-item-chips">
@@ -458,6 +441,9 @@ export function TransaksiPage() {
           <Pager page={paging.page} pages={paging.pages} count={rows.length} onPage={paging.setPage} />
         </>
       )}
+
+      </div>
+      </div>
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)} title={t('tx.editTitle')}>
         {editing && categories && sources && (

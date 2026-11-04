@@ -135,6 +135,7 @@ export async function listTransactions({ request, env, userId }: RouteContext) {
   const to = url.searchParams.get('to');
   const category = url.searchParams.get('category');
   const method = url.searchParams.get('method');
+  const source = url.searchParams.get('source');
   const query = url.searchParams.get('q')?.trim();
 
   if (from && !isDate(from)) throw new HttpError(400, 'Tanggal awal tidak valid');
@@ -161,6 +162,11 @@ export async function listTransactions({ request, env, userId }: RouteContext) {
   } else if (method) {
     clauses.push('method = ?');
     binds.push(method);
+  }
+  // A funds filter counts money out of that account and money into it (a transfer's destination).
+  if (source) {
+    clauses.push('(source_id = ? OR to_source_id = ?)');
+    binds.push(source, source);
   }
   if (query) {
     clauses.push('instr(lower(note), lower(?)) > 0');
@@ -229,6 +235,13 @@ export async function createTransaction({ request, env, userId, actorId }: Route
  * PUT /api/transactions/:id. A credit transaction whose bill is paid is locked: only its note and
  * category can change, so the paid bill keeps matching its transactions.
  */
+/** GET /api/transactions/:id: one transaction, for its detail page. */
+export async function getTransaction({ env, userId, params }: RouteContext) {
+  const row = await env.DB.prepare(`SELECT ${SELECT_COLUMNS} FROM transactions WHERE id = ? AND user_id = ?`).bind(params.id, userId).first<TransactionRow>();
+  if (!row) throw new HttpError(404, 'Transaksi tidak ditemukan');
+  return json({ transaction: toTransaction(row) });
+}
+
 export async function updateTransaction({ request, env, userId, actorId, params }: RouteContext) {
   const existing = await env.DB.prepare('SELECT occurred_on, amount, method, source_id, status, posted_on FROM transactions WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)

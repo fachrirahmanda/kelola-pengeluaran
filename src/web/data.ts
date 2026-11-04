@@ -61,6 +61,12 @@ export function useRecurring() {
   return { data, reload };
 }
 
+/** The day the monthly period starts for the data set (1 is the calendar month). */
+export function usePeriodStart(): number {
+  const { state } = useWorkspace();
+  return state?.workspace.periodStartDay ?? 1;
+}
+
 /** The shared data set, its members, and invitations for the signed-in person. */
 export function useWorkspace() {
   const [state, setState] = useState<{ workspace: Workspace; invitations: Invitation[] } | null>(null);

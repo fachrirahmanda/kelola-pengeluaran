@@ -41,7 +41,8 @@ async function categoryOwned(db: D1Database, userId: string, categoryId: unknown
  * The method, and for debit the savings account it is paid from, which must hold `amount`. Cash and transfer
  * have no account.
  */
-async function paymentMethodOf(env: Env, userId: string, body: Record<string, unknown>, amount: number) {
+// `amount` is left out when the money is already taken from that account (an edit that keeps it), so it is not checked twice.
+async function paymentMethodOf(env: Env, userId: string, body: Record<string, unknown>, amount?: number) {
   if (!RECURRING_METHODS.includes(body.method as RecurringMethod)) throw new HttpError(400, 'Metode bayar tidak valid');
   const method = body.method as RecurringMethod;
   const sourceId = method === 'debit' ? (await debitSourceOf(env.DB, userId, body.sourceId, amount)).id : null;
@@ -108,13 +109,13 @@ export async function listRecurring({ env, userId }: RouteContext) {
     .sort((a, b) => (a.nextDueDate ?? '').localeCompare(b.nextDueDate ?? ''));
 
   const { results: paymentRows } = await env.DB.prepare(
-    `SELECT p.id, p.item_id, i.name, p.installment, p.due_month, p.amount, p.paid_on, s.name AS source_name
+    `SELECT p.id, p.item_id, i.name, p.installment, p.due_month, p.amount, p.paid_on, t.method, t.source_id, s.name AS source_name
      FROM recurring_payments p JOIN recurring_items i ON i.id = p.item_id
        LEFT JOIN transactions t ON t.id = p.transaction_id LEFT JOIN payment_sources s ON s.id = t.source_id
      WHERE p.user_id = ? ORDER BY p.paid_on DESC, p.created_at DESC LIMIT ${PAYMENT_LIST_LIMIT}`,
   )
     .bind(userId)
-    .all<{ id: string; item_id: string; name: string; installment: number; due_month: string; amount: number; paid_on: string; source_name: string | null }>();
+    .all<{ id: string; item_id: string; name: string; installment: number; due_month: string; amount: number; paid_on: string; method: RecurringMethod; source_id: string | null; source_name: string | null }>();
   const payments: RecurringPayment[] = paymentRows.map((row) => ({
     id: row.id,
     itemId: row.item_id,
@@ -123,6 +124,8 @@ export async function listRecurring({ env, userId }: RouteContext) {
     dueMonth: row.due_month,
     amount: row.amount,
     paidOn: row.paid_on,
+    method: row.method,
+    sourceId: row.source_id,
     sourceName: row.source_name,
   }));
 
@@ -203,7 +206,11 @@ export async function catchUpRecurring({ request, env, userId, params }: RouteCo
   return json({ added });
 }
 
-/** PATCH /api/recurring/:id. The start date and number of months stay fixed. */
+/**
+ * PATCH /api/recurring/:id { name?, amount?, categoryId?, firstMonth? (YYYY-MM) }. firstMonth moves the whole plan to
+ * start in that month: installment 1 is due then, and every recorded installment moves with its number. The payment
+ * dates do not change, and the number of months stays fixed.
+ */
 export async function updateRecurring({ request, env, userId, params }: RouteContext) {
   const current = await env.DB.prepare('SELECT id, name, amount, category_id, start_date, total_months FROM recurring_items WHERE id = ? AND user_id = ?')
     .bind(params.id, userId)
@@ -213,12 +220,30 @@ export async function updateRecurring({ request, env, userId, params }: RouteCon
   const body = await readJson(request);
   const { name, amount } = parseItem({ name: body.name ?? current.name, amount: body.amount ?? current.amount });
   const categoryId = body.categoryId === undefined ? current.category_id : await categoryOwned(env.DB, userId, body.categoryId);
-  await env.DB.prepare('UPDATE recurring_items SET name = ?, amount = ?, category_id = ? WHERE id = ? AND user_id = ?')
-    .bind(name, amount, categoryId, current.id, userId)
-    .run();
+  // A new first month keeps the day of the start and stays a real date (a 31st becomes the last day of a shorter month).
+  let startDate = current.start_date;
+  if (body.firstMonth !== undefined) {
+    if (!isMonth(body.firstMonth)) throw new HttpError(400, 'Bulan cicilan pertama tidak valid');
+    const [year, month] = body.firstMonth.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const day = Math.min(Number(current.start_date.slice(8, 10)), lastDay);
+    startDate = `${body.firstMonth}-${String(day).padStart(2, '0')}`;
+  }
+
+  const statements = [
+    env.DB.prepare('UPDATE recurring_items SET name = ?, amount = ?, category_id = ?, start_date = ? WHERE id = ? AND user_id = ?').bind(name, amount, categoryId, startDate, current.id, userId),
+  ];
+  if (startDate !== current.start_date) {
+    // Each recorded installment keeps its number and moves to the month that number is now due in.
+    const { results } = await env.DB.prepare('SELECT id, installment FROM recurring_payments WHERE item_id = ?').bind(current.id).all<{ id: string; installment: number }>();
+    for (const row of results) {
+      statements.push(env.DB.prepare('UPDATE recurring_payments SET due_month = ? WHERE id = ?').bind(dueMonthOf(startDate, row.installment), row.id));
+    }
+  }
+  await env.DB.batch(statements);
 
   const paid = await env.DB.prepare('SELECT COUNT(*) AS paid, MAX(paid_on) AS last_paid_on FROM recurring_payments WHERE item_id = ?').bind(current.id).first<{ paid: number; last_paid_on: string | null }>();
-  return json({ item: toItem({ ...current, name, amount, category_id: categoryId }, paid?.paid ?? 0, paid?.last_paid_on ?? null, todayWib()) });
+  return json({ item: toItem({ ...current, name, amount, category_id: categoryId, start_date: startDate }, paid?.paid ?? 0, paid?.last_paid_on ?? null, todayWib()) });
 }
 
 /** DELETE /api/recurring/:id. Refused once an installment has been paid. */
@@ -278,7 +303,58 @@ export async function payRecurring({ request, env, userId, params }: RouteContex
     dueMonth,
     amount: item.amount,
     paidOn: body.paidOn,
+    method,
+    sourceId,
     sourceName: null,
   };
   return json({ payment }, 201);
+}
+
+/**
+ * DELETE /api/recurring/payments/:id: cancels a payment made by mistake. Only the latest installment of an item can
+ * be cancelled, so the installments stay in order. Its transaction is removed too, so the money goes back to the
+ * account it came from and the installment is due again.
+ */
+export async function cancelRecurringPayment({ env, userId, params }: RouteContext) {
+  const payment = await env.DB.prepare('SELECT item_id, installment, transaction_id FROM recurring_payments WHERE id = ? AND user_id = ?')
+    .bind(params.id, userId)
+    .first<{ item_id: string; installment: number; transaction_id: string }>();
+  if (!payment) throw new HttpError(404, 'Pembayaran tidak ditemukan');
+
+  const latest = await env.DB.prepare('SELECT MAX(installment) AS latest FROM recurring_payments WHERE item_id = ?').bind(payment.item_id).first<{ latest: number }>();
+  if (latest?.latest !== payment.installment) throw new HttpError(409, 'Hanya pembayaran cicilan terakhir yang bisa dibatalkan.');
+
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM recurring_payments WHERE id = ? AND user_id = ?').bind(params.id, userId),
+    env.DB.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').bind(payment.transaction_id, userId),
+  ]);
+  return json({ ok: true });
+}
+
+/**
+ * PATCH /api/recurring/payments/:id { paidOn, method, sourceId? }: changes the date, or how a recorded payment was paid.
+ * The installment number and its amount stay. The payment's transaction moves with it, so balances follow.
+ */
+export async function updateRecurringPayment({ request, env, userId, params }: RouteContext) {
+  const payment = await env.DB.prepare(
+    `SELECT p.transaction_id, t.amount, t.method, t.source_id FROM recurring_payments p JOIN transactions t ON t.id = p.transaction_id
+     WHERE p.id = ? AND p.user_id = ?`,
+  )
+    .bind(params.id, userId)
+    .first<{ transaction_id: string; amount: number; method: RecurringMethod; source_id: string | null }>();
+  if (!payment) throw new HttpError(404, 'Pembayaran tidak ditemukan');
+
+  const body = await readJson(request);
+  if (!isDate(body.paidOn)) throw new HttpError(400, 'Tanggal bayar tidak valid');
+  // Keeping the same savings account: its balance already has this payment taken out, so it is not checked again.
+  const keepsAccount = payment.method === 'debit' && body.method === 'debit' && body.sourceId === payment.source_id;
+  const { method, sourceId } = await paymentMethodOf(env, userId, body, keepsAccount ? undefined : payment.amount);
+
+  await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE transactions SET occurred_on = ?, posted_on = ?, method = ?, source_id = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?",
+    ).bind(body.paidOn, body.paidOn, method, sourceId, payment.transaction_id, userId),
+    env.DB.prepare('UPDATE recurring_payments SET paid_on = ? WHERE id = ? AND user_id = ?').bind(body.paidOn, params.id, userId),
+  ]);
+  return json({ ok: true });
 }

@@ -1,6 +1,8 @@
 import { addMonths } from '../../shared/recurring';
+import { periodRange } from '../../shared/period';
 import type { RouteContext } from '../context';
 import { HttpError, json } from '../http';
+import { periodSpendingOf, periodStartOf } from './period';
 
 // Reports count spending on the day it was counted (posted_on), the same as the rest of the app.
 // For a credit bill that is the payment date, not the purchase date.
@@ -21,24 +23,15 @@ function rangeOf(url: URL): { from: string; to: string; months: number } {
   return { from, to, months };
 }
 
-/** First and last day of the range, as YYYY-MM-DD bounds on posted_on. */
-function bounds(range: { from: string; to: string }) {
-  const lastDay = new Date(Date.UTC(Number(range.to.slice(0, 4)), Number(range.to.slice(5)), 0)).getUTCDate();
-  return { start: `${range.from}-01`, end: `${range.to}-${String(lastDay).padStart(2, '0')}` };
+/** First and last day of the range (periods, from the data set's start day), as YYYY-MM-DD bounds on posted_on. */
+function bounds(range: { from: string; to: string }, startDay: number) {
+  return { start: periodRange(range.from, startDay).from, end: periodRange(range.to, startDay).to };
 }
 
-/** GET /api/reports?from=YYYY-MM&to=YYYY-MM: spending per month and per category. */
+/** GET /api/reports?from=YYYY-MM&to=YYYY-MM: spending per period and per category. */
 export async function monthlyReport({ request, env, userId }: RouteContext) {
   const range = rangeOf(new URL(request.url));
-  const { start, end } = bounds(range);
-  const { results } = await env.DB.prepare(
-    `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total, COUNT(*) AS count
-     FROM transactions
-     WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? AND posted_on <= ?
-     GROUP BY month, category_id`,
-  )
-    .bind(userId, start, end)
-    .all<{ month: string; category_id: string; total: number; count: number }>();
+  const results = await periodSpendingOf(env, userId, await periodStartOf(env, userId), range.from, range.to);
 
   const months = Array.from({ length: range.months }, (_, i) => {
     const month = addMonths(range.from, i);
@@ -79,7 +72,7 @@ function cell(value: string | number | null): string {
 /** GET /api/reports/export.csv?from=YYYY-MM&to=YYYY-MM: every counted transaction in the range. */
 export async function exportCsv({ request, env, userId }: RouteContext) {
   const range = rangeOf(new URL(request.url));
-  const { start, end } = bounds(range);
+  const { start, end } = bounds(range, await periodStartOf(env, userId));
   const { results } = await env.DB.prepare(
     `SELECT t.posted_on, t.occurred_on, t.amount, c.name AS category, t.note, t.method, s.name AS source
      FROM transactions t

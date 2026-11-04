@@ -23,7 +23,7 @@ const HISTORY_PAGE_SIZE = 10;
 
 /** The installments (cicilan), shown on the Loans page: each plan with its next payment, and the payment history. Adding one is in the Add panel. */
 export function InstallmentsSection() {
-  const { t, lang, money, date, categoryName } = usePrefs();
+  const { t, categoryName } = usePrefs();
   const { categories } = useCategories();
   const { data, reload } = useRecurring();
   const [error, setError] = useState('');
@@ -33,6 +33,21 @@ export function InstallmentsSection() {
 
   // The installments whose next payment is due or overdue, as the server reports them. Only these can be marked as paid here.
   const dueIds = new Set((data?.upcoming ?? []).map((item) => item.id));
+
+  // Only the latest payment of each installment can be cancelled, so the installments stay in order.
+  const latestIds = new Set((data?.items ?? []).flatMap((item) => (data?.payments ?? []).filter((payment) => payment.itemId === item.id && payment.installment === item.paidCount).map((payment) => payment.id)));
+
+  async function cancelPayment(payment: RecurringPayment) {
+    if (!window.confirm(t('rec.cancelConfirm', { n: payment.installment, name: payment.name }))) return;
+    setError('');
+    try {
+      await api.delete(`/recurring/payments/${payment.id}`);
+      window.DS?.toast(t('rec.cancelled'), { variant: 'success' });
+      await reload();
+    } catch (requestError) {
+      setError(requestError instanceof ApiRequestError ? requestError.message : t('common.error.network'));
+    }
+  }
 
   return (
     <>
@@ -87,17 +102,14 @@ export function InstallmentsSection() {
             </div>
           ) : (
             pageOf(data.payments, history.page, HISTORY_PAGE_SIZE).map((payment: RecurringPayment) => (
-              <div key={payment.id} className="list-row rec-history-row">
-                <div className="source-main">
-                  <span className="source-name">{payment.name}</span>
-                  <span className="source-meta">{t('rec.installmentNoEnd', { n: payment.installment })}</span>
-                  <span className="source-meta">
-                    {t('rec.paidLine', { date: date(payment.paidOn), month: monthLabel(payment.dueMonth, lang) })}
-                    {payment.sourceName && ` · ${t('pay.fromLine', { name: payment.sourceName })}`}
-                  </span>
-                </div>
-                <span className="amount">{money(payment.amount)}</span>
-              </div>
+              <PaymentRow
+                key={payment.id}
+                payment={payment}
+                latest={latestIds.has(payment.id)}
+                onCancel={() => void cancelPayment(payment)}
+                onChanged={() => void reload()}
+                onError={setError}
+              />
             ))
           )}
           {data && <Pager page={history.page} pages={history.pages} count={data.payments.length} onPage={history.setPage} />}
@@ -116,123 +128,6 @@ function sortedInstallments(items: RecurringItem[], dueIds: Set<string>): Recurr
     return dueIds.has(item.id) ? 1 : 2;
   };
   return [...items].sort((a, b) => rank(a) - rank(b) || (a.nextDueDate ?? '').localeCompare(b.nextDueDate ?? ''));
-}
-
-export function AddRecurringForm({
-  categoryOptions,
-  defaultCategoryId,
-  onCreated,
-  onError,
-}: {
-  categoryOptions: { value: string; label: string }[];
-  defaultCategoryId: string;
-  onCreated: (name: string) => void;
-  onError: (message: string) => void;
-}) {
-  const { t } = usePrefs();
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [startDate, setStartDate] = useState(todayInWib());
-  const [fixed, setFixed] = useState(true);
-  const [months, setMonths] = useState('12');
-  // The last month already paid: every installment due up to it is recorded, so nothing has to be entered one by one.
-  const [paidThrough, setPaidThrough] = useState('');
-  const [saving, setSaving] = useState(false);
-  const selectedCategory = categoryId || defaultCategoryId;
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onError('');
-    setSaving(true);
-    try {
-      await api.post('/recurring', {
-        name: name.trim(),
-        amount: Number(amount),
-        categoryId: selectedCategory,
-        startDate,
-        totalMonths: fixed ? Number(months) : null,
-        paidThrough: paidThrough || null,
-      });
-      setPaidThrough('');
-      onCreated(name.trim());
-      setName('');
-      setAmount('');
-    } catch (requestError) {
-      onError(requestError instanceof ApiRequestError ? requestError.message : t('common.error.network'));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form className="stack-lg" onSubmit={(event) => void handleSubmit(event)} noValidate>
-      <div className="tx-grid">
-        <label className="tx-field">
-          <span className="tx-field-label">{t('rec.name')}</span>
-          <input type="text" className="input" value={name} maxLength={60} onChange={(event) => setName(event.target.value)} required />
-        </label>
-        <label className="tx-field">
-          <span className="tx-field-label">{t('rec.amount')}</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="input"
-            value={amount}
-            onChange={(event) => setAmount(event.target.value.replace(/\D/g, '').slice(0, 13))}
-            required
-          />
-        </label>
-        <div className="tx-field">
-          <span className="tx-field-label">{t('rec.category')}</span>
-          <Dropdown value={selectedCategory} options={categoryOptions} onChange={setCategoryId} ariaLabel={t('rec.category')} />
-        </div>
-        <label className="tx-field">
-          <span className="tx-field-label">{t('rec.startDate')}</span>
-          <DatePicker value={startDate} onChange={(v) => setStartDate(v ?? todayInWib())} ariaLabel={t('rec.startDate')} />
-        </label>
-      </div>
-
-      <div className="tx-field">
-        <span className="tx-field-label">{t('rec.duration')}</span>
-        <div className="chip-row" role="radiogroup" aria-label={t('rec.duration')}>
-          <button type="button" role="radio" aria-checked={fixed} className="pill" onClick={() => setFixed(true)}>
-            {t('rec.fixed')}
-          </button>
-          <button type="button" role="radio" aria-checked={!fixed} className="pill" onClick={() => setFixed(false)}>
-            {t('rec.noEnd')}
-          </button>
-        </div>
-        {fixed && (
-          <label className="tx-field">
-            <span className="tx-field-label">{t('rec.months')}</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={600}
-              className="input"
-              value={months}
-              onChange={(event) => setMonths(event.target.value)}
-              required
-            />
-          </label>
-        )}
-      </div>
-
-      <label className="tx-field">
-        <span className="tx-field-label">{t('rec.paidThrough')}</span>
-        <MonthPicker value={paidThrough || null} onChange={(value) => setPaidThrough(value ?? '')} max={todayInWib().slice(0, 7)} ariaLabel={t('rec.paidThrough')} />
-        <span className="tx-hint">{t('rec.paidThroughHint')}</span>
-      </label>
-
-      <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={saving || !amount || !name.trim()}>
-          {saving ? t('form.saving') : t('rec.create')}
-        </button>
-      </div>
-    </form>
-  );
 }
 
 /** One installment: its status, the next payment (marked as paid when it is due), and the actions. */
@@ -262,6 +157,7 @@ function InstallmentCard({
   const [name, setName] = useState(item.name);
   const [amount, setAmount] = useState(String(item.amount));
   const [categoryId, setCategoryId] = useState(item.categoryId);
+  const [firstMonth, setFirstMonth] = useState(item.startDate.slice(0, 7));
 
   const progress =
     item.totalMonths !== null
@@ -273,7 +169,9 @@ function InstallmentCard({
     event.preventDefault();
     onError('');
     try {
-      await api.patch(`/recurring/${item.id}`, { name: name.trim(), amount: Number(amount), categoryId });
+      // The first month is sent only when it changed, since moving it moves every recorded installment.
+      const moved = firstMonth !== item.startDate.slice(0, 7) ? { firstMonth } : {};
+      await api.patch(`/recurring/${item.id}`, { name: name.trim(), amount: Number(amount), categoryId, ...moved });
       setEditing(false);
       window.DS?.toast(t('rec.updated'), { variant: 'success' });
       onChanged();
@@ -346,6 +244,11 @@ function InstallmentCard({
           <div className="tx-field">
             <span className="tx-field-label">{t('rec.category')}</span>
             <Dropdown value={categoryId} options={categoryOptions} onChange={setCategoryId} ariaLabel={t('rec.category')} />
+          </div>
+          <div className="tx-field">
+            <span className="tx-field-label">{t('rec.firstMonth')}</span>
+            <MonthPicker value={firstMonth || null} onChange={(value) => setFirstMonth(value ?? firstMonth)} ariaLabel={t('rec.firstMonth')} />
+            <span className="tx-hint">{t('rec.firstMonthHint')}</span>
           </div>
         </div>
         <div className="form-actions">
@@ -454,4 +357,98 @@ function agoText(iso: string, t: (key: 'rec.agoThisMonth' | 'rec.agoMonths' | 'r
   const years = Math.floor(months / 12);
   const rest = months % 12;
   return rest === 0 ? t('rec.agoYears', { years }) : t('rec.agoYearsMonths', { years, months: rest });
+}
+
+/** One payment in the history. The latest of a plan can be cancelled. Any payment can be changed: its date, or the account it came from. */
+function PaymentRow({ payment, latest, onCancel, onChanged, onError }: { payment: RecurringPayment; latest: boolean; onCancel: () => void; onChanged: () => void; onError: (message: string) => void }) {
+  const { t, lang, money, date } = usePrefs();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [paidOn, setPaidOn] = useState(payment.paidOn);
+  const [method, setMethod] = useState<RecurringMethod>(payment.method);
+  const [sourceId, setSourceId] = useState(payment.sourceId ?? '');
+
+  function startEditing() {
+    setPaidOn(payment.paidOn);
+    setMethod(payment.method);
+    setSourceId(payment.sourceId ?? '');
+    onError('');
+    setEditing(true);
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    onError('');
+    try {
+      await api.patch(`/recurring/payments/${payment.id}`, { paidOn, method, sourceId: method === 'debit' ? sourceId : null });
+      setEditing(false);
+      window.DS?.toast(t('rec.paymentUpdated'), { variant: 'success' });
+      onChanged();
+    } catch (requestError) {
+      onError(requestError instanceof ApiRequestError ? requestError.message : t('common.error.network'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <form className="list-row rec-history-row" onSubmit={(event) => void save(event)}>
+        <div className="source-main">
+          <span className="source-name">{payment.name}</span>
+          <span className="source-meta">{t('rec.installmentNoEnd', { n: payment.installment })}</span>
+          <div className="stack">
+            <div className="tx-field">
+              <span className="tx-field-label">{t('rec.paidOn')}</span>
+              <DatePicker value={paidOn} onChange={(value) => setPaidOn(value ?? paidOn)} ariaLabel={t('rec.paidOn')} />
+            </div>
+            <div className="tx-field">
+              <span className="tx-field-label">{t('rec.method')}</span>
+              <div className="chip-row" role="radiogroup" aria-label={t('rec.method')}>
+                {RECURRING_METHODS.map((option) => (
+                  <button key={option} type="button" role="radio" aria-checked={method === option} className="pill" onClick={() => setMethod(option)}>
+                    {t(METHOD_KEYS[option])}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {method === 'debit' && <DebitSourceField value={sourceId} onChange={setSourceId} />}
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn" onClick={() => setEditing(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving || (method === 'debit' && !sourceId)}>
+              {saving ? t('form.saving') : t('form.save')}
+            </button>
+          </div>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="list-row rec-history-row">
+      <div className="source-main">
+        <span className="cluster">
+          <span className="source-name">{payment.name}</span>
+          {latest && (
+            <button type="button" className="btn btn-danger-soft rec-cancel" onClick={onCancel}>
+              {t('rec.cancelPayment')}
+            </button>
+          )}
+          <button type="button" className="icon-btn icon-btn-sm icon-btn-plain icon-btn-soft" onClick={startEditing} aria-label={t('rec.editPayment')} title={t('rec.editPayment')}>
+            <Icon name="edit" size={15} />
+          </button>
+        </span>
+        <span className="source-meta">{t('rec.installmentNoEnd', { n: payment.installment })}</span>
+        <span className="source-meta">
+          {t('rec.paidLine', { date: date(payment.paidOn), month: monthLabel(payment.dueMonth, lang) })}
+          {payment.sourceName && ` · ${t('pay.fromLine', { name: payment.sourceName })}`}
+        </span>
+      </div>
+      <span className="amount">{money(payment.amount)}</span>
+    </div>
+  );
 }

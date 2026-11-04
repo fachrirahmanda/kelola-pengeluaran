@@ -1,8 +1,10 @@
 import { addMonths, dueDateOf, nextInstallment } from '../../shared/recurring';
+import { periodOf, periodRange } from '../../shared/period';
 import type { RouteContext } from '../context';
 import { fillCalculations } from '../calc';
 import { HttpError, json, readJson } from '../http';
 import { notify } from '../notify';
+import { periodSpendingOf, periodStartOf } from './period';
 import { aiConfig, chat } from '../nvidia';
 
 // Ask AI: answers questions about the data owner's spending, from a summary this Worker builds. The
@@ -101,18 +103,14 @@ export function todayInWib() {
 /** The text the model reads: months, categories, this period's transactions, sources and unpaid card spending. */
 async function summaryOf(env: RouteContext['env'], userId: string) {
   const today = todayInWib();
-  const thisMonth = today.slice(0, 7);
+  const startDay = await periodStartOf(env, userId);
+  const thisMonth = periodOf(today, startDay);
   const firstMonth = addMonths(thisMonth, -(MONTHS - 1));
-  const start = `${firstMonth}-01`;
+  const start = periodRange(firstMonth, startDay).from;
+  const monthly = { results: await periodSpendingOf(env, userId, startDay, firstMonth, thisMonth) };
 
-  const [categories, monthly, recent, sources, unpaid, installments, loans] = await Promise.all([
+  const [categories, recent, sources, unpaid, installments, loans] = await Promise.all([
     env.DB.prepare('SELECT id, name FROM categories WHERE user_id = ?').bind(userId).all<{ id: string; name: string }>(),
-    env.DB.prepare(
-      `SELECT substr(posted_on, 1, 7) AS month, category_id, SUM(amount) AS total, COUNT(*) AS count
-       FROM transactions WHERE user_id = ? AND status = 'posted' AND method <> 'transfer' AND posted_on >= ? GROUP BY month, category_id`,
-    )
-      .bind(userId, start)
-      .all<{ month: string; category_id: string; total: number; count: number }>(),
     env.DB.prepare(
       `SELECT t.occurred_on, t.posted_on, t.status, t.amount, t.method, t.note, t.category_id, s.name AS source_name
        FROM transactions t LEFT JOIN payment_sources s ON s.id = t.source_id

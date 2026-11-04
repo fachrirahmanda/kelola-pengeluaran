@@ -11,9 +11,9 @@ const isDate = (value: unknown): value is string => typeof value === 'string' &&
 
 /** GET /api/loans */
 export async function listLoans({ env, userId }: RouteContext) {
-  const loans = await env.DB.prepare('SELECT id, name, principal, received_on FROM loans WHERE user_id = ? ORDER BY received_on DESC, created_at DESC')
+  const loans = await env.DB.prepare('SELECT id, name, principal, received_on, category_id FROM loans WHERE user_id = ? ORDER BY received_on DESC, created_at DESC')
     .bind(userId)
-    .all<{ id: string; name: string; principal: number; received_on: string }>();
+    .all<{ id: string; name: string; principal: number; received_on: string; category_id: string | null }>();
   const payments = await env.DB.prepare(
     `SELECT p.id, p.loan_id, p.paid_on, p.transaction_id, t.amount, s.name AS source_name FROM loan_payments p
      JOIN transactions t ON t.id = p.transaction_id LEFT JOIN payment_sources s ON s.id = t.source_id
@@ -31,6 +31,7 @@ export async function listLoans({ env, userId }: RouteContext) {
         name: loan.name,
         principal: loan.principal,
         receivedOn: loan.received_on,
+        categoryId: loan.category_id,
         paid,
         remaining: loan.principal - paid,
         payments: mine.map((payment) => ({ id: payment.id, amount: payment.amount, paidOn: payment.paid_on, transactionId: payment.transaction_id, sourceName: payment.source_name })),
@@ -39,7 +40,7 @@ export async function listLoans({ env, userId }: RouteContext) {
   });
 }
 
-/** POST /api/loans { name, principal, receivedOn } */
+/** POST /api/loans { name, principal, receivedOn, categoryId } */
 export async function addLoan({ request, env, userId }: RouteContext) {
   const body = await readJson(request);
   const name = typeof body.name === 'string' ? body.name.trim() : '';
@@ -48,8 +49,11 @@ export async function addLoan({ request, env, userId }: RouteContext) {
   if (!Number.isFinite(principal) || principal <= 0) throw new HttpError(400, 'Jumlah pinjaman harus lebih dari 0');
   if (!isDate(body.receivedOn)) throw new HttpError(400, 'Tanggal tidak valid');
 
-  await env.DB.prepare('INSERT INTO loans (id, user_id, name, principal, received_on) VALUES (?, ?, ?, ?, ?)')
-    .bind(crypto.randomUUID(), userId, name, principal, body.receivedOn)
+  if (typeof body.categoryId !== 'string') throw new HttpError(400, 'Pilih kategori');
+  const category = await env.DB.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').bind(body.categoryId, userId).first();
+  if (!category) throw new HttpError(400, 'Kategori tidak ditemukan');
+  await env.DB.prepare('INSERT INTO loans (id, user_id, name, principal, received_on, category_id) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), userId, name, principal, body.receivedOn, body.categoryId)
     .run();
   return json({ ok: true }, 201);
 }

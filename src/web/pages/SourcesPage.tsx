@@ -1,11 +1,12 @@
-import { useState, type CSSProperties, type FormEvent } from 'react';
-import { Link } from 'react-router';
+import { useLayoutEffect, useState, type CSSProperties, type FormEvent, type UIEvent } from 'react';
+import { Link, useNavigate } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { BankBadge } from '../components/BankBadge';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../components/Icon';
 import { SidePanel, usePhone } from '../components/SidePanel';
 import { SalarySection } from '../components/SalarySection';
+import { useDragScroll } from '../components/useDragScroll';
 import { SkeletonRows } from '../components/Skeleton';
 import { useAuth } from '../auth';
 import { useBills, useSources } from '../data';
@@ -398,9 +399,34 @@ function cardColours(bank: Bank | undefined): CSSProperties {
 /** A card's bill: paid, or unpaid with the date it is due. */
 type BillState = { status: 'paid' } | { status: 'unpaid'; dueOn: string };
 
+/** The width of one copy of the sources row: the row less its side padding, split in three. */
+function loopCopyOf(element: HTMLElement): number {
+  const padding = parseFloat(getComputedStyle(element).paddingLeft) || 0;
+  return (element.scrollWidth - 2 * padding) / 3;
+}
+
 function SourceCards({ sources, holders, filtered, billStates, onEdit, onRemove }: SourceCardsProps) {
   const { t, money, date } = usePrefs();
   const { banks } = useBankList();
+  const drag = useDragScroll();
+  const phone = usePhone();
+  const navigate = useNavigate();
+  // Phones: the cards loop. Three copies of the row sit side by side; when the scroll reaches either end it jumps by
+  // one copy, so it never runs out of cards. The copy is the width of one set of cards and their gaps.
+  const loop = phone && (sources?.length ?? 0) > 1;
+  const items = loop ? [0, 1, 2].flatMap((copy) => (sources ?? []).map((source) => ({ source, copy }))) : (sources ?? []).map((source) => ({ source, copy: 0 }));
+  useLayoutEffect(() => {
+    const element = drag.ref.current;
+    if (!loop || !element) return;
+    element.scrollLeft = loopCopyOf(element);
+  }, [loop, sources?.length]);
+  function onLoopScroll(event: UIEvent<HTMLDivElement>) {
+    if (!loop) return;
+    const element = event.currentTarget;
+    const copy = loopCopyOf(element);
+    if (element.scrollLeft < copy * 0.5) element.scrollLeft += copy;
+    else if (element.scrollLeft > copy * 1.5) element.scrollLeft -= copy;
+  }
   if (sources === null) return <SkeletonRows count={2} />;
   if (sources.length === 0) {
     return (
@@ -410,16 +436,25 @@ function SourceCards({ sources, holders, filtered, billStates, onEdit, onRemove 
     );
   }
   return (
-    <div className="source-grid">
-      {sources.map((source) => {
+    <div ref={drag.ref} className={`source-grid${drag.dragging ? ' is-dragging' : ''}`} onScroll={onLoopScroll} {...drag.handlers}>
+      {items.map(({ source, copy }) => {
         const holder = holders.find((person) => person.userId === source.holderId);
         const state = billStates.get(source.id);
         // The card's one figure: the balance, what is left of a credit limit, or what is owed.
         const figure = source.kind === 'savings' ? (source.balance ?? 0) : source.creditLimit ? source.creditLimit - (source.owed ?? 0) : (source.owed ?? 0);
         const label = source.kind === 'savings' ? t('settings.balanceLabel') : source.creditLimit ? t('settings.availableLabel') : t('settings.unpaidLabel');
         return (
-          <div key={source.id} className="source-slot">
-          <article className="card source-card" style={cardColours(banks.find((item) => item.id === source.bank))}>
+          <div key={`${source.id}-${copy}`} className="source-slot">
+          <article
+            className="card source-card"
+            style={cardColours(banks.find((item) => item.id === source.bank))}
+            role="link"
+            tabIndex={0}
+            onClick={() => navigate(`/transactions?source=${source.id}`)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') navigate(`/transactions?source=${source.id}`);
+            }}
+          >
             <div className="card-body">
               <div className="source-card-head">
                 <BankBadge bankId={source.bank} />
@@ -436,7 +471,7 @@ function SourceCards({ sources, holders, filtered, billStates, onEdit, onRemove 
                 {source.kind !== 'savings' && source.creditLimit ? <span className="text-sm text-muted">{`${t('settings.creditLimit')}: ${money(source.creditLimit)}`}</span> : null}
               </div>
 
-              <div className="source-actions">
+              <div className="source-actions" onClick={(event) => event.stopPropagation()}>
                 {holders.length > 1 &&
                   (holder ? (
                     <span className="source-card-holder" title={holderName(holder)}>

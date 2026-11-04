@@ -161,7 +161,7 @@ export function TransactionCalendar({ onPickDay }: { onPickDay: (day: string) =>
                   >
                     <span className="cal-tile-day">{day}</span>
                     {income > 0 && <span className="cal-tile-in">+{shortAmount(income, shortFormat)}</span>}
-                    <span className="cal-tile-amount">{shortAmount(spent, shortFormat)}</span>
+                    <span className={`cal-tile-amount${spent ? '' : ' is-zero'}`}>{spent ? shortAmount(spent, shortFormat) : '–'}</span>
                   </button>
                 );
               })}

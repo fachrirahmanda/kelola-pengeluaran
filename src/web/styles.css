@@ -520,19 +520,10 @@ select.input,
   color: var(--muted);
 }
 
-/* History: the table on wide screens, a list of cards on phones (see TransaksiPage). */
+/* History: one list of cards on every screen (see TransaksiPage). */
 .tx-list {
-  display: none;
-}
-
-@media (max-width: 720px) {
-  .tx-table-desktop {
-    display: none;
-  }
-
-  .tx-list {
-    display: block;
-  }
+  display: grid;
+  gap: 8px;
 }
 
 .tx-item {
@@ -3121,10 +3112,11 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   color: var(--success);
 }
 
+/* Members are one list with dividers, not boxes inside a box: each row gives its text the full width and
+   keeps the badge or the remove button in the same right-hand place. */
 .ws-members {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .ws-person {
@@ -3132,9 +3124,36 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   align-items: center;
   gap: 12px;
   min-width: 0;
-  padding: 12px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.ws-person:first-child {
+  padding-top: 0;
+}
+
+.ws-person:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.ws-person > .ws-row-text {
+  gap: 2px;
+}
+
+.ws-person > .badge,
+.ws-person > .icon-btn {
+  flex-shrink: 0;
+}
+
+/* Remove a member: a soft red round button, the same as delete on a card. */
+.ws-person > .icon-btn-soft.text-danger {
+  background: rgb(248 113 113 / 0.18);
+  opacity: 1;
+}
+
+.ws-person > .icon-btn-soft.text-danger:hover {
+  background: rgb(248 113 113 / 0.32);
 }
 
 .ws-invite {
@@ -3413,6 +3432,7 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 
 .cal-tile-day {
   font-size: 13px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
@@ -3434,8 +3454,15 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 }
 
 .cal-tile-amount {
+  margin-top: 2px;
   font-size: 12px;
   font-weight: 600;
+}
+
+/* A day with no spending: a muted dash, so it does not read as part of the date. */
+.cal-tile-amount.is-zero {
+  color: var(--muted);
+  font-weight: 400;
 }
 
 .cal-tile.is-future .cal-tile-amount {
@@ -4331,9 +4358,9 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   background: color-mix(in srgb, var(--cat-color) 12%, var(--surface));
 }
 
-/* The selected category keeps its outline, even with the tinted tile above. */
+/* The selected category keeps an outline in its own colour, so it blends with the tinted tile above. */
 .side-panel-scope .tx-form .category-option[aria-checked='true'] {
-  box-shadow: 0 0 0 2px var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat-color) 30%, var(--surface));
 }
 
 /* The selected method, source and category read as the app's dark selection, as on the other chips. */
@@ -4468,13 +4495,6 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
   white-space: nowrap;
 }
 
-/* History on phones: the rows match the recent transactions on Home, as tinted rounded tiles with a gap between them. */
-@media (max-width: 720px) {
-  .tx-list {
-    display: grid;
-    gap: 8px;
-  }
-}
 
 .tx-item.recent-tile {
   border-bottom: 0;
@@ -4714,4 +4734,280 @@ dialog.dialog::backdrop { background: transparent; backdrop-filter: none; -webki
 .bank-color-swatch::-moz-color-swatch {
   border: 2px solid var(--separator);
   border-radius: 50%;
+}
+
+/* Cancel a mistaken installment payment: a small text button beside the name. */
+.rec-cancel {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  font-size: var(--text-sm);
+}
+
+/* Simple pagination under a list: Previous, the page status, Next. */
+.pager-simple {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: var(--space-4);
+}
+
+/* The transactions list shows one period: arrows on each side of its name, and a swipe on phones. */
+.period-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.period-nav-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  text-align: center;
+}
+
+.period-nav-prev {
+  transform: rotate(180deg);
+}
+
+/* Vertical scrolling stays with the page; a sideways swipe is left to the list. */
+.tx-list {
+  touch-action: pan-y;
+}
+
+/* Pagination under a list: round buttons, the current page filled with the accent colour. */
+.pager-round {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: var(--space-4) 0;
+}
+
+.pager-round-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--card-edge);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.pager-round-btn:hover:not(:disabled) {
+  background: var(--fill);
+}
+
+.pager-round-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pager-round-btn[aria-current="page"] {
+  background: var(--accent);
+  box-shadow: none;
+  color: var(--on-accent);
+}
+
+.pager-round-gap {
+  width: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.pager-round-chev {
+  display: inline-flex;
+}
+
+.pager-round-chev > svg + svg {
+  margin-left: -6px;
+}
+
+.pager-round-chev.is-flipped,
+.pager-round-prev {
+  transform: rotate(180deg);
+}
+
+/* The picked day in the date picker is a flat accent circle. A mouse click or the popover opening does not
+   leave a focus ring or a shadow on it; the keyboard still gets a ring. */
+.date-popover .rdp-day_button:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.date-popover .rdp-day_button:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
+.date-popover .rdp-selected .rdp-day_button,
+.date-popover .rdp-selected .rdp-day_button:focus {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 0;
+  box-shadow: none;
+}
+
+/* A bank whose logo is its brand artwork on the bank's own colour (BCA): the colour is the badge, and the logo sits
+   in the middle of it, not filling it. */
+.bank-badge.bank-badge-logo.bank-badge-brand,
+.source-card .bank-badge.bank-badge-brand {
+  background: var(--bank-color);
+}
+
+.bank-badge-brand img {
+  width: 70%;
+  height: auto;
+}
+
+/* A bank logo on a source card is a round badge with its own ring, so it does not melt into the card's colour. */
+.source-card .bank-badge-logo {
+  box-sizing: border-box;
+  border: 1px solid rgb(255 255 255 / 0.55);
+}
+
+/* On a computer the cards scroll sideways by dragging them with the mouse. */
+.source-grid {
+  cursor: grab;
+  user-select: none;
+}
+
+.source-grid.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+/* Today in the date picker is bold in the accent colour, without a ring around it. */
+.date-popover .rdp-today:not(.rdp-selected) .rdp-day_button {
+  box-shadow: none;
+}
+
+/* A little air between the bank's name row and the balance on a source card. */
+.source-card-amount {
+  margin-top: 10px;
+}
+
+/* Computers: the calendar and filters on the left at a fixed width, the list on the right. Phones stack them. */
+.tx-layout {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.tx-side {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+@media (min-width: 1024px) {
+  .tx-layout {
+    grid-template-columns: 445px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .tx-side .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Phones: the source card in the middle of the row, with the cards on either side showing at the edges. */
+@media (max-width: 720px) {
+  .source-grid {
+    padding-inline: calc((100vw - min(320px, 78vw)) / 2);
+    scroll-padding-inline: 0;
+  }
+
+  .source-grid > * {
+    flex: 0 0 min(320px, 78vw);
+    scroll-snap-align: center;
+  }
+}
+
+/* A transaction title opens its detail page: it keeps the card text colour, with no link underline. */
+.tx-item-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The transaction's receipts: the heading on the left and the add button on the right, on one line. */
+.tx-detail-receipts .row-actions {
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Delete and edit share a row at the bottom; on a phone the row clears the bottom bar. */
+.tx-detail-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: var(--space-4);
+}
+
+.tx-detail-actions .btn {
+  justify-content: center;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .tx-detail-actions {
+    margin-bottom: 96px;
+  }
+}
+
+/* The bottom bar: each tab's name stays on one line. */
+.ds-bottom-nav-item > span:last-child {
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* A back link above a page title, with room before the title. */
+.tx-back {
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+/* Split bill: two fields side by side, each item in its own block, and the amounts and shares lined up. */
+.tx-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.split-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.split-item-amount {
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.split-item .pill[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.split-share {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.scan-field .btn {
+  align-self: flex-start;
 }

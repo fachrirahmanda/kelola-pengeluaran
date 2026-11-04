@@ -6,7 +6,7 @@ import { Icon } from '../components/Icon';
 import { AddPanel, type AddKind } from '../components/AddPanel';
 import { usePhone } from '../components/SidePanel';
 import { SkeletonDashboard, SkeletonRows } from '../components/Skeleton';
-import { useBills, useCategories, useRecurring } from '../data';
+import { useBills, useCategories, usePeriodStart, useRecurring } from '../data';
 import { monthLabel, monthRange, todayInWib } from '../format';
 import { usePrefs } from '../prefs';
 import { addMonths, monthOf } from '../../shared/recurring';
@@ -56,7 +56,8 @@ export function DashboardPage() {
 
   // Only this month. Dates are WIB, the same as when they were recorded.
   const today = useMemo(() => todayInWib(), []);
-  const range = useMemo(() => monthRange(today), [today]);
+  const startDay = usePeriodStart();
+  const range = useMemo(() => monthRange(today, startDay), [today, startDay]);
   const thisMonth = monthOf(today);
   const nextMonth = addMonths(thisMonth, 1);
 

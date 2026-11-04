@@ -4,6 +4,7 @@ import { useAuth } from '../auth';
 import { AiSection } from '../components/AiSection';
 import { CategoriesSection } from '../components/CategoriesSection';
 import { WorkspaceSection } from '../components/WorkspaceSection';
+import { PeriodSection } from '../components/PeriodSection';
 import { DriveSection } from '../components/DriveSection';
 import { usePrefs } from '../prefs';
 
@@ -44,7 +45,13 @@ export function SettingsPage() {
 
       {tab === 'categories' && <CategoriesSection />}
       {tab === 'banks' && <BanksSection />}
-      {tab === 'workspace' && <WorkspaceSection />}
+      {tab === 'workspace' && (
+        <>
+          {/* The monthly period is part of the shared data set, so it sits with the workspace. */}
+          <PeriodSection />
+          <WorkspaceSection />
+        </>
+      )}
       {tab === 'storage' && isAdmin && <DriveSection />}
       {tab === 'ai' && isAdmin && <AiSection />}
     </>

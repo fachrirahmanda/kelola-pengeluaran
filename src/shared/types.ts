@@ -183,7 +183,10 @@ export interface RecurringPayment {
   dueMonth: string;
   amount: number;
   paidOn: string;
+  /** How it was paid: by debit from a savings account, or by transfer. */
+  method: RecurringMethod;
   /** The savings account it was paid from by debit, if any. */
+  sourceId: string | null;
   sourceName: string | null;
 }
 
@@ -250,6 +253,8 @@ export interface Workspace {
   ownerAvatarUrl?: string | null;
   /** The signed-in person's role in this data set. */
   role: 'owner' | 'member';
+  /** The day the monthly period starts (1 to 28; 1 is the calendar month). */
+  periodStartDay: number;
   /** Everyone in the data set. Only filled in for the owner. */
   members: WorkspaceMember[];
   /** Pending invitations sent by the owner. Only filled in for the owner. */

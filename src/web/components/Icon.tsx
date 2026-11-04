@@ -62,6 +62,7 @@ const PATHS: Record<string, ReactNode> = {
   card: <><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></>,
   wallet: <><path d="M20 7H5a2 2 0 0 1 0-4h13v4" /><rect x="3" y="7" width="18" height="13" rx="2" /><circle cx="16" cy="13.5" r="1" /></>,
   coins: <><circle cx="9" cy="9" r="6" /><path d="M15.5 9.5a6 6 0 1 1-6.5 6" /></>,
+  calculator: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01" /></>,
   home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>,
   banknote: <><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 10v.01M18 14v.01" /></>,
   transfer: <path d="M4 8h14l-3-3M20 16H6l3 3" />,

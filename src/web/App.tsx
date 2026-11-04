@@ -11,6 +11,9 @@
   import { SettingsPage } from './pages/SettingsPage';
   import { SourcesPage } from './pages/SourcesPage';
   import { TransaksiPage } from './pages/TransaksiPage';
+  import { TransactionDetailPage } from './pages/TransactionDetailPage';
+  import { CalculatorPage } from './pages/CalculatorPage';
+  import { SplitBillPage } from './pages/SplitBillPage';
   import { AskPage } from './pages/AskPage';
   import { BudgetsPage } from './pages/BudgetsPage';
   import { LoansPage } from './pages/LoansPage';
@@ -39,6 +42,10 @@
                 {/* Add expense lives on Home now: the add link opens its form there. */}
                 <Route path="add" element={<Navigate to="/dashboard?add=1" replace />} />
                 <Route path="transactions" element={<TransaksiPage />} />
+                <Route path="transactions/:id" element={<TransactionDetailPage />} />
+                <Route path="calculator" element={<CalculatorPage />} />
+                <Route path="split" element={<SplitBillPage />} />
+                <Route path="split/:id" element={<SplitBillPage />} />
                 <Route path="categories" element={<Navigate to="/settings" replace />} />
                 <Route path="installments" element={<Navigate to="/loans" replace />} />
                 <Route path="bills" element={<BillsPage />} />

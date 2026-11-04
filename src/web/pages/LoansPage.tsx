@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { api, ApiRequestError } from '../api';
 import { DatePicker } from '../components/DatePicker';
 import { Dropdown } from '../components/Dropdown';
-import { SkeletonForm, SkeletonRows } from '../components/Skeleton';
+import { SkeletonRows } from '../components/Skeleton';
 import { DebitSourceField } from '../components/DebitSourceField';
 import { Icon } from '../components/Icon';
 import { SidePanel, usePhone } from '../components/SidePanel';
@@ -10,7 +11,8 @@ import { useCategories } from '../data';
 import { todayInWib } from '../format';
 import type { MessageKey } from '../i18n';
 import { usePrefs } from '../prefs';
-import { AddRecurringForm, InstallmentsSection } from './RecurringPage';
+import { InstallmentsSection } from './RecurringPage';
+import { MonthPicker } from '../components/MonthPicker';
 
 // Loans (pinjaman): money received is a loan, not spending. Each repayment is recorded as an expense on
 // the day it is paid, and the remaining balance goes down.
@@ -25,6 +27,7 @@ interface LoanPayment {
 }
 
 interface Loan {
+  categoryId: string | null;
   id: string;
   name: string;
   principal: number;
@@ -61,6 +64,9 @@ export function LoansPage() {
           <h2>{t('loans.title')}</h2>
           <p className="hint">{t('loans.subtitle')}</p>
         </div>
+        <Link to="/calculator" className="btn btn-sm">
+          {t('calc.open')}
+        </Link>
         {phone && (
           <button type="button" className="btn btn-primary" onClick={() => setAdding(true)}>
             <Icon name="plus" size={16} />
@@ -122,58 +128,51 @@ const DEBT_KINDS: { value: DebtKind; label: MessageKey }[] = [
   { value: 'loan', label: 'debt.single' },
 ];
 
-/** An installment or a loan in one form: a Type choice, then the form for that kind. Used on the Loans page and in the Add panel. */
+/**
+ * An installment or a loan in one form: the name and the total, then the type, the category, and what that type needs.
+ * Used on the Loans page and in the Add panel.
+ */
 export function DebtForm({ onSaved, onError }: { onSaved: () => void; onError: (message: string) => void }) {
-  const { t, categoryName } = usePrefs();
+  const { t, money, categoryName } = usePrefs();
   const { categories } = useCategories();
-  const [kind, setKind] = useState<DebtKind>('installment');
-  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
-
-  return (
-    <>
-      <div className="debt-kind tx-field">
-        <span className="tx-field-label">{t('add.debtKind')}</span>
-        <Dropdown value={kind} options={DEBT_KINDS.map((item) => ({ value: item.value, label: t(item.label) }))} onChange={(value) => setKind(value as DebtKind)} ariaLabel={t('add.debtKind')} />
-      </div>
-      {kind === 'loan' ? (
-        <AddLoanForm onAdded={onSaved} onError={onError} />
-      ) : categories ? (
-        <AddRecurringForm
-          categoryOptions={categoryOptions}
-          defaultCategoryId={categories[0]?.id ?? ''}
-          onCreated={(name) => {
-            window.DS?.toast(t('rec.created', { name }), { variant: 'success' });
-            onSaved();
-          }}
-          onError={onError}
-        />
-      ) : (
-        <SkeletonForm />
-      )}
-    </>
-  );
-}
-
-export function AddLoanForm({ onAdded, onError }: { onAdded: () => void; onError: (message: string) => void }) {
-  const { t, money } = usePrefs();
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [kind, setKind] = useState<DebtKind>('installment');
+  const [categoryId, setCategoryId] = useState('');
+  // Installments: when they start, for how many months (or with no end), and the last month already paid.
+  const [startDate, setStartDate] = useState(todayInWib());
+  const [fixed, setFixed] = useState(true);
+  const [months, setMonths] = useState('12');
+  const [paidThrough, setPaidThrough] = useState('');
+  // Single payment loans: the day the money was received.
   const [receivedOn, setReceivedOn] = useState(todayInWib());
   const [saving, setSaving] = useState(false);
+  const total = toAmount(amount);
+  const selectedCategory = categoryId || categories?.[0]?.id || '';
+  const categoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: `${category.icon} ${categoryName(category.name)}` }));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     onError('');
     setSaving(true);
     try {
-      await api.post('/loans', { name: name.trim(), principal: toAmount(amount), receivedOn });
-      window.DS?.toast(t('loans.added', { name: name.trim() }), { variant: 'success' });
-      setName('');
-      setAmount('');
-      setReceivedOn(todayInWib());
-      onAdded();
+      if (kind === 'installment') {
+        await api.post('/recurring', {
+          name: name.trim(),
+          amount: total,
+          categoryId: selectedCategory,
+          startDate,
+          totalMonths: fixed ? Number(months) : null,
+          paidThrough: paidThrough || null,
+        });
+        window.DS?.toast(t('rec.created', { name: name.trim() }), { variant: 'success' });
+      } else {
+        await api.post('/loans', { name: name.trim(), principal: total, receivedOn, categoryId: selectedCategory });
+        window.DS?.toast(t('loans.added', { name: name.trim() }), { variant: 'success' });
+      }
+      onSaved();
     } catch (requestError) {
-      onError(requestError instanceof ApiRequestError ? requestError.message : t('loans.error'));
+      onError(requestError instanceof ApiRequestError ? requestError.message : t('common.error.network'));
     } finally {
       setSaving(false);
     }
@@ -185,18 +184,62 @@ export function AddLoanForm({ onAdded, onError }: { onAdded: () => void; onError
         <span className="tx-field-label">{t('loans.name')}</span>
         <input className="input" value={name} onChange={(event) => setName(event.target.value)} maxLength={60} required />
       </label>
+      <div className="tx-field">
+        <span className="tx-field-label">{t('add.debtKind')}</span>
+        <Dropdown value={kind} options={DEBT_KINDS.map((item) => ({ value: item.value, label: t(item.label) }))} onChange={(value) => setKind(value as DebtKind)} ariaLabel={t('add.debtKind')} />
+      </div>
       <label className="tx-field">
-        <span className="tx-field-label">{t('loans.amount')}</span>
-        <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, ''))} required />
-        {toAmount(amount) > 0 && <span className="tx-hint">{money(toAmount(amount))}</span>}
+        <span className="tx-field-label">{kind === 'installment' ? t('debt.perMonth') : t('loans.amount')}</span>
+        <input className="input" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value.replace(/\D/g, '').slice(0, 13))} required />
+        {total > 0 && <span className="tx-hint">{money(total)}</span>}
+        {kind === 'installment' && fixed && total > 0 && Number(months) > 0 && (
+          <span className="tx-hint">{t('debt.totalHint', { months: Number(months), total: money(total * Number(months)) })}</span>
+        )}
       </label>
       <div className="tx-field">
-        <span className="tx-field-label">{t('loans.received')}</span>
-        <DatePicker value={receivedOn} onChange={(value) => setReceivedOn(value ?? todayInWib())} ariaLabel={t('loans.received')} />
+        <span className="tx-field-label">{t('rec.category')}</span>
+        <Dropdown value={selectedCategory} options={categoryOptions} onChange={setCategoryId} ariaLabel={t('rec.category')} />
       </div>
+
+      {kind === 'installment' ? (
+        <>
+          <label className="tx-field">
+            <span className="tx-field-label">{t('rec.startDate')}</span>
+            <DatePicker value={startDate} onChange={(value) => setStartDate(value ?? todayInWib())} ariaLabel={t('rec.startDate')} />
+          </label>
+          <div className="tx-field">
+            <span className="tx-field-label">{t('rec.duration')}</span>
+            <div className="chip-row" role="radiogroup" aria-label={t('rec.duration')}>
+              <button type="button" role="radio" aria-checked={fixed} className="pill" onClick={() => setFixed(true)}>
+                {t('rec.fixed')}
+              </button>
+              <button type="button" role="radio" aria-checked={!fixed} className="pill" onClick={() => setFixed(false)}>
+                {t('rec.noEnd')}
+              </button>
+            </div>
+            {fixed && (
+              <label className="tx-field">
+                <span className="tx-field-label">{t('rec.months')}</span>
+                <input type="number" inputMode="numeric" min={1} max={600} className="input" value={months} onChange={(event) => setMonths(event.target.value)} required />
+              </label>
+            )}
+          </div>
+          <label className="tx-field">
+            <span className="tx-field-label">{t('rec.paidThrough')}</span>
+            <MonthPicker value={paidThrough || null} onChange={(value) => setPaidThrough(value ?? '')} max={todayInWib().slice(0, 7)} ariaLabel={t('rec.paidThrough')} />
+            <span className="tx-hint">{t('rec.paidThroughHint')}</span>
+          </label>
+        </>
+      ) : (
+        <label className="tx-field">
+          <span className="tx-field-label">{t('loans.received')}</span>
+          <DatePicker value={receivedOn} onChange={(value) => setReceivedOn(value ?? todayInWib())} ariaLabel={t('loans.received')} />
+        </label>
+      )}
+
       <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={saving || !name.trim() || !toAmount(amount)} aria-busy={saving}>
-          {saving ? t('form.saving') : t('loans.add')}
+        <button type="submit" className="btn btn-primary" disabled={saving || !name.trim() || !total || !selectedCategory} aria-busy={saving}>
+          {saving ? t('form.saving') : kind === 'installment' ? t('rec.create') : t('loans.add')}
         </button>
       </div>
     </form>
@@ -210,7 +253,7 @@ function LoanCard({ loan, onChanged }: { loan: Loan; onChanged: () => void }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [paidOn, setPaidOn] = useState(todayInWib());
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState(loan.categoryId ?? '');
   const [method, setMethod] = useState<(typeof METHOD_KEYS)[number]>('debit');
   const [sourceId, setSourceId] = useState('');
   const [busy, setBusy] = useState(false);

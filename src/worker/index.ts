@@ -18,11 +18,13 @@ import { getAvatar, getProfile, removeAvatar, saveAvatar, saveName } from './rou
 import { resetData } from './routes/reset';
 import { addAttachment, deleteAttachment, driveCallback, getAttachment, getDrive, listAttachments, removeDrive, startDrive } from './routes/drive';
 import { acceptInvite, declineInvite, getWorkspace, invite, leaveWorkspace, removeMember, revokeInvite } from './routes/workspace';
-import { catchUpRecurring, createRecurring, deleteRecurring, listRecurring, payRecurring, updateRecurring } from './routes/recurring';
+import { setPeriodStart } from './routes/period';
+import { cancelRecurringPayment, catchUpRecurring, createRecurring, deleteRecurring, listRecurring, payRecurring, updateRecurring, updateRecurringPayment } from './routes/recurring';
 import { createCategory, deleteCategory, listCategories, updateCategory } from './routes/categories';
-import { createTransaction, deleteTransaction, listTransactions, updateTransaction } from './routes/transactions';
+import { createTransaction, deleteTransaction, getTransaction, listTransactions, updateTransaction } from './routes/transactions';
 import { listNotifications, markNotificationsRead, syncNotifications } from './routes/notifications';
 import { listActivity } from './routes/activity';
+import { createSplitBill, deleteSplitBill, getSplitBill, listSplitBills, recordSplitBill, scanInvoice, unrecordSplitBill, updateSplitBill } from './routes/splitbill';
 
 // API. The React app is served from Workers Assets; only /api/* reaches this Worker.
 // Each route keeps its handler; `auth` routes need a session and get the data owner's id.
@@ -59,6 +61,8 @@ const routes: [Method, string, boolean, Handler][] = [
   ['DELETE', '/recurring/:id', true, deleteRecurring],
   ['POST', '/recurring/:id/pay', true, payRecurring],
   ['POST', '/recurring/:id/catch-up', true, catchUpRecurring],
+  ['PATCH', '/recurring/payments/:id', true, updateRecurringPayment],
+  ['DELETE', '/recurring/payments/:id', true, cancelRecurringPayment],
 
   ['GET', '/workspace', true, getWorkspace],
   ['POST', '/workspace/invites', true, invite],
@@ -67,6 +71,7 @@ const routes: [Method, string, boolean, Handler][] = [
   ['POST', '/workspace/invites/:id/decline', true, declineInvite],
   ['DELETE', '/workspace/members/:userId', true, removeMember],
   ['POST', '/workspace/leave', true, leaveWorkspace],
+  ['PUT', '/workspace/period-start', true, setPeriodStart],
 
   ['GET', '/reports', true, monthlyReport],
   ['GET', '/reports/export.csv', true, exportCsv],
@@ -112,12 +117,21 @@ const routes: [Method, string, boolean, Handler][] = [
 
   ['GET', '/transactions', true, listTransactions],
   ['POST', '/transactions', true, createTransaction],
+  ['GET', '/transactions/:id', true, getTransaction],
   ['PUT', '/transactions/:id', true, updateTransaction],
   ['DELETE', '/transactions/:id', true, deleteTransaction],
   ['GET', '/notifications', true, listNotifications],
   ['POST', '/notifications/read', true, markNotificationsRead],
   ['POST', '/notifications/sync', true, syncNotifications],
   ['GET', '/activity', true, listActivity],
+  ['GET', '/split-bills', true, listSplitBills],
+  ['POST', '/split-bills', true, createSplitBill],
+  ['POST', '/split-bills/scan', true, scanInvoice],
+  ['GET', '/split-bills/:id', true, getSplitBill],
+  ['PUT', '/split-bills/:id', true, updateSplitBill],
+  ['DELETE', '/split-bills/:id', true, deleteSplitBill],
+  ['POST', '/split-bills/:id/record', true, recordSplitBill],
+  ['DELETE', '/split-bills/:id/record', true, unrecordSplitBill],
 ];
 
 /** Builds the handler's context. For signed-in routes this checks the session first. */

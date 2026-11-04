@@ -4,10 +4,11 @@ import { Donut } from '../components/Donut';
 import { Icon } from '../components/Icon';
 import { MonthPicker } from '../components/MonthPicker';
 import { SkeletonRows } from '../components/Skeleton';
-import { useCategories } from '../data';
+import { useCategories, usePeriodStart } from '../data';
 import { monthLabel, todayInWib } from '../format';
 import { usePrefs } from '../prefs';
-import { addMonths, monthOf } from '../../shared/recurring';
+import { addMonths } from '../../shared/recurring';
+import { periodOf } from '../../shared/period';
 
 // Reports: pick a period (3, 6 or 12 months, or your own), then see the total, the month-by-month bars,
 // the change from month to month, and where the money went by category.
@@ -40,7 +41,8 @@ type Period = (typeof PRESETS)[number] | 'custom';
 export function ReportsPage() {
   const { t, lang, money, categoryName } = usePrefs();
   const { categories } = useCategories();
-  const thisMonth = useMemo(() => monthOf(todayInWib()), []);
+  const startDay = usePeriodStart();
+  const thisMonth = useMemo(() => periodOf(todayInWib(), startDay), [startDay]);
   const [period, setPeriod] = useState<Period>(6);
   const [from, setFrom] = useState(addMonths(thisMonth, -5));
   const [to, setTo] = useState(thisMonth);
@@ -57,6 +59,13 @@ export function ReportsPage() {
       setTo(thisMonth);
     }
   }
+
+  // The period moves when the start day loads or changes, so a preset range follows it.
+  useEffect(() => {
+    if (period === 'custom') return;
+    setFrom(addMonths(thisMonth, -(period - 1)));
+    setTo(thisMonth);
+  }, [thisMonth, period]);
 
   useEffect(() => {
     if (rangeProblem) return;
